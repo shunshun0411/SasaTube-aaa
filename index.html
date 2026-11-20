@@ -2461,6 +2461,126 @@
   }
 
   function updateEnemyHpText() {
-    document.getElementById('zzz-enemy-hp').textContent = '敵シールド: ' + '❤️'.repeat(Math.max(0
+    document.getElementById('zzz-enemy-hp').textContent = '敵シールド: ' + '❤️'.repeat(Math.max(0, enemyHp));
+  }
+
+  function stepBattle(now) {
+    if (!inBattle) return;
+    const dt = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+    const speed = 0.72 + Math.min(0.45, depth * 0.06);
+    ringProgress += dt * speed;
+
+    if (ringProgress >= 1.0) {
+      ringProgress = 0;
+      corruption += 10;
+      judgeText.textContent = '💥 被弾！侵食度 +10%';
+      judgeText.style.color = '#ff5500';
+      updateHud();
+      if (corruption >= 100) {
+        gameOver = true;
+        inBattle = false;
+        battleOverlay.classList.remove('active');
+        updateHud();
+        renderBoard();
+        return;
+      }
+    }
+
+    const size = 195 - ringProgress * 120;
+    shrinkRing.style.width = size + 'px';
+    shrinkRing.style.height = size + 'px';
+    shrinkRing.style.borderColor = (ringProgress >= 0.62 && ringProgress <= 0.84) ? '#d8ff00' : '#ff5500';
+
+    battleRaf = requestAnimationFrame(stepBattle);
+  }
+
+  document.getElementById('zzz-parry-btn').addEventListener('click', () => {
+    if (!inBattle) return;
+    if (ringProgress >= 0.65 && ringProgress <= 0.81) {
+      enemyHp -= 2;
+      score += 180;
+      corruption = Math.max(0, corruption - 5);
+      judgeText.textContent = '⚡ PERFECT PARRY!! (2ダメージ)';
+      judgeText.style.color = '#d8ff00';
+    } else if (ringProgress >= 0.54 && ringProgress <= 0.90) {
+      enemyHp -= 1;
+      score += 80;
+      judgeText.textContent = '✨ GOOD COUNTER! (1ダメージ)';
+      judgeText.style.color = '#00f0ff';
+    } else {
+      corruption += 8;
+      judgeText.textContent = '💦 タイミングズレ！侵食度 +8%';
+      judgeText.style.color = '#ff5500';
+    }
+
+    ringProgress = 0;
+    updateEnemyHpText();
+    updateHud();
+
+    if (corruption >= 100) {
+      gameOver = true;
+      inBattle = false;
+      stopBattleLoop();
+      battleOverlay.classList.remove('active');
+      renderBoard();
+      return;
+    }
+
+    if (enemyHp <= 0) {
+      inBattle = false;
+      stopBattleLoop();
+      board[battleTargetPos.y][battleTargetPos.x] = 'empty';
+      score += 120;
+      setTimeout(() => {
+        battleOverlay.classList.remove('active');
+        updateHud();
+        renderBoard();
+      }, 280);
+    }
+  });
+
+  document.querySelectorAll('[data-zzz-move]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [dx, dy] = btn.dataset.zzzMove.split(',').map(Number);
+      movePlayer(dx, dy);
+    });
+  });
+
+  let touchStart = null;
+  gridEl.addEventListener('touchstart', e => {
+    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  gridEl.addEventListener('touchend', e => {
+    if (!touchStart) return;
+    const dx = e.changedTouches[0].clientX - touchStart.x;
+    const dy = e.changedTouches[0].clientY - touchStart.y;
+    if (Math.abs(dx) > 24 || Math.abs(dy) > 24) {
+      if (Math.abs(dx) > Math.abs(dy)) movePlayer(dx > 0 ? 1 : -1, 0);
+      else movePlayer(0, dy > 0 ? 1 : -1);
+    }
+    touchStart = null;
+  });
+
+  window.addEventListener('keydown', e => {
+    if (!modal.classList.contains('open')) return;
+    if (inBattle && (e.key === ' ' || e.key === 'Enter')) {
+      e.preventDefault();
+      document.getElementById('zzz-parry-btn').click();
+      return;
+    }
+    if (e.key === 'ArrowUp') movePlayer(0, -1);
+    if (e.key === 'ArrowDown') movePlayer(0, 1);
+    if (e.key === 'ArrowLeft') movePlayer(-1, 0);
+    if (e.key === 'ArrowRight') movePlayer(1, 0);
+  });
+
+  document.getElementById('zzz-reset-btn').addEventListener('click', resetGame);
+
+  resetGame();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectZzzButton);
+  else injectZzzButton();
+})();
+</script>
 </body>
 </html>
