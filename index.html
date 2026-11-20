@@ -1844,5 +1844,623 @@
       bootApp();
     }
   </script>
+  <!-- ===== Sasa Tube: ゼンレスゾーンゼロ風 H.D.D. ホロウ探索ミニゲーム ===== -->
+<style>
+  #zzz-game-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: rgba(11, 12, 15, 0.96);
+    backdrop-filter: blur(8px);
+    color: #f4f4f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding: 14px;
+    box-sizing: border-box;
+  }
+  #zzz-game-modal.open {
+    display: flex;
+  }
+  .zzz-box {
+    width: 100%;
+    max-width: 430px;
+    background: #16181d;
+    border: 2px solid #2b2e38;
+    border-radius: 18px;
+    padding: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.75);
+    margin: auto 0;
+    position: relative;
+  }
+  .zzz-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #2a2d37;
+    padding-bottom: 10px;
+  }
+  .zzz-title {
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    color: #d8ff00;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .zzz-badge {
+    background: #ff5500;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 800;
+  }
+  .zzz-close {
+    background: #262932;
+    color: #fff;
+    border: 1px solid #3a3e4c;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .zzz-hud {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .zzz-stat {
+    background: #0e1014;
+    border: 1px solid #262932;
+    border-radius: 10px;
+    padding: 6px 8px;
+    text-align: center;
+  }
+  .zzz-stat-label {
+    font-size: 10px;
+    color: #9ca3af;
+    font-weight: 700;
+  }
+  .zzz-stat-val {
+    font-size: 15px;
+    font-weight: 900;
+    color: #fff;
+  }
+  .zzz-corrupt-wrap {
+    background: #0e1014;
+    border: 1px solid #262932;
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+  }
+  .zzz-corrupt-top {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 800;
+    margin-bottom: 5px;
+  }
+  .zzz-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: #23262f;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .zzz-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00f0ff, #d8ff00, #ff5500);
+    transition: width 0.2s ease;
+  }
+  .zzz-mission {
+    background: rgba(216, 255, 0, 0.1);
+    border: 1px solid rgba(216, 255, 0, 0.35);
+    color: #d8ff00;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  /* TVアレイ 5x5 グリッド */
+  #zzz-tv-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    background: #0a0b0e;
+    padding: 10px;
+    border-radius: 14px;
+    border: 2px solid #292d38;
+    aspect-ratio: 1 / 1;
+    max-width: 340px;
+    margin: 0 auto;
+    touch-action: none;
+    user-select: none;
+  }
+  .zzz-tv-cell {
+    background: #1a1d24;
+    border: 2px solid #2c303c;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.15s, background 0.15s;
+    touch-action: manipulation;
+  }
+  .zzz-tv-cell.adjacent {
+    border-color: rgba(216, 255, 0, 0.55);
+    background: #21252f;
+  }
+  .zzz-tv-cell.player {
+    background: #d8ff00;
+    border-color: #ffffff;
+    color: #000;
+    box-shadow: 0 0 14px rgba(216, 255, 0, 0.65);
+    transform: scale(1.04);
+  }
+  .zzz-tv-cell.exit-open {
+    border-color: #00f0ff;
+    background: rgba(0, 240, 255, 0.16);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.45);
+  }
+  .zzz-tv-sub {
+    font-size: 9px;
+    font-weight: 800;
+    margin-top: 1px;
+    color: #cbd5e1;
+  }
+  .zzz-tv-cell.player .zzz-tv-sub {
+    color: #111;
+  }
+  /* 操作パッド */
+  .zzz-dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 56px);
+    grid-template-rows: repeat(2, 44px);
+    gap: 6px;
+    justify-content: center;
+    margin-top: 12px;
+  }
+  .zzz-pad-btn {
+    background: #232630;
+    color: #fff;
+    border: 1px solid #383d4d;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .zzz-pad-btn:active {
+    background: #d8ff00;
+    color: #000;
+  }
+  .zzz-reset-btn {
+    width: 100%;
+    margin-top: 10px;
+    background: #232630;
+    color: #e5e7eb;
+    border: 1px solid #383d4d;
+    border-radius: 10px;
+    padding: 9px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  /* 極限支援パリィバトル画面 */
+  #zzz-battle-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 13, 17, 0.97);
+    border-radius: 16px;
+    padding: 18px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+  }
+  #zzz-battle-overlay.active {
+    display: flex;
+  }
+  .zzz-enemy-tag {
+    background: #ff5500;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.08em;
+  }
+  .zzz-enemy-hp {
+    font-size: 18px;
+    font-weight: 900;
+    margin-top: 6px;
+    color: #fff;
+  }
+  .zzz-ring-stage {
+    position: relative;
+    width: 190px;
+    height: 190px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .zzz-target-ring {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    border: 5px solid #d8ff00;
+    box-shadow: 0 0 20px rgba(216, 255, 0, 0.45), inset 0 0 15px rgba(216, 255, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 44px;
+  }
+  .zzz-shrinking-ring {
+    position: absolute;
+    width: 185px;
+    height: 185px;
+    border-radius: 50%;
+    border: 4px solid #ff5500;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  .zzz-judge-text {
+    height: 26px;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+  }
+  .zzz-parry-btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, #d8ff00, #ffaa00);
+    color: #0b0c0e;
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    box-shadow: 0 6px 24px rgba(216, 255, 0, 0.45);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .zzz-parry-btn:active {
+    transform: scale(0.97);
+  }
+</style>
+
+<div id="zzz-game-modal">
+  <div class="zzz-box">
+    <div class="zzz-header">
+      <div class="zzz-title">⚡ H.D.D. ホロウ探索 <span class="zzz-badge">ZZZ STYLE</span></div>
+      <button class="zzz-close" id="zzz-close-btn">✕ 閉じる</button>
+    </div>
+
+    <div class="zzz-hud">
+      <div class="zzz-stat">
+        <div class="zzz-stat-label">DEPTH (階層)</div>
+        <div class="zzz-stat-val" id="zzz-depth">1F</div>
+      </div>
+      <div class="zzz-stat">
+        <div class="zzz-stat-label">SCORE</div>
+        <div class="zzz-stat-val" id="zzz-score" style="color:#d8ff00;">0</div>
+      </div>
+      <div class="zzz-stat">
+        <div class="zzz-stat-label">BEST</div>
+        <div class="zzz-stat-val" id="zzz-best">0</div>
+      </div>
+    </div>
+
+    <div class="zzz-corrupt-wrap">
+      <div class="zzz-corrupt-top">
+        <span>☣️ エーテル侵食度 (100%で撤退)</span>
+        <span id="zzz-corrupt-val" style="color:#00f0ff;">0%</span>
+      </div>
+      <div class="zzz-bar-bg">
+        <div class="zzz-bar-fill" id="zzz-corrupt-bar"></div>
+      </div>
+    </div>
+
+    <div class="zzz-mission" id="zzz-mission-text">
+      👾 エーテリアスを全て撃破して出口🔒を開放せよ！
+    </div>
+
+    <div id="zzz-tv-grid"></div>
+
+    <div class="zzz-dpad">
+      <div></div>
+      <button class="zzz-pad-btn" data-zzz-move="0,-1">▲</button>
+      <div></div>
+      <button class="zzz-pad-btn" data-zzz-move="-1,0">◀</button>
+      <button class="zzz-pad-btn" data-zzz-move="0,1">▼</button>
+      <button class="zzz-pad-btn" data-zzz-move="1,0">▶</button>
+    </div>
+    <button class="zzz-reset-btn" id="zzz-reset-btn">最初から探索をやり直す</button>
+
+    <!-- 極限支援パリィバトル -->
+    <div id="zzz-battle-overlay">
+      <div style="text-align:center;">
+        <div class="zzz-enemy-tag">WARNING // ETHEREAL ENCOUNTER</div>
+        <div class="zzz-enemy-hp" id="zzz-enemy-hp">敵シールド: ❤️❤️</div>
+      </div>
+
+      <div class="zzz-ring-stage">
+        <div class="zzz-shrinking-ring" id="zzz-shrink-ring"></div>
+        <div class="zzz-target-ring">👾</div>
+      </div>
+
+      <div class="zzz-judge-text" id="zzz-judge-text" style="color:#d8ff00;">
+        黄色の枠に重なる瞬間にタップ！
+      </div>
+
+      <button class="zzz-parry-btn" id="zzz-parry-btn">⚡ 極限支援 / PARRY!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const modal = document.getElementById('zzz-game-modal');
+  const gridEl = document.getElementById('zzz-tv-grid');
+  const battleOverlay = document.getElementById('zzz-battle-overlay');
+  const shrinkRing = document.getElementById('zzz-shrink-ring');
+  const judgeText = document.getElementById('zzz-judge-text');
+
+  let bestScore = Number(localStorage.getItem('zzz_hdd_best') || 0);
+  let score = 0, depth = 1, corruption = 0;
+  let player = { x: 0, y: 0 };
+  let board = [];
+  let gameOver = false;
+
+  // バトル用ステート
+  let inBattle = false;
+  let enemyHp = 2;
+  let battleTargetPos = null;
+  let ringProgress = 0;
+  let battleRaf = null;
+  let lastFrameTime = 0;
+
+  // ヘッダーに起動ボタンを自動挿入
+  function injectZzzButton() {
+    if (document.getElementById('sasa-open-zzz-btn')) return;
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const favTab = buttons.find(b => b.textContent && b.textContent.includes('お気に入り'));
+    const btn = document.createElement('button');
+    btn.id = 'sasa-open-zzz-btn';
+    btn.type = 'button';
+    btn.textContent = '⚡ ゼンゼロ風H.D.D.';
+    if (favTab && favTab.parentElement) {
+      btn.className = favTab.className;
+      btn.style.marginLeft = '6px';
+      favTab.parentElement.insertBefore(btn, favTab.nextSibling);
+    } else {
+      Object.assign(btn.style, {
+        position: 'fixed', bottom: '18px', left: '18px', zIndex: '9998',
+        background: '#d8ff00', color: '#111', border: 'none', borderRadius: '999px',
+        padding: '12px 16px', fontWeight: '900', fontSize: '13px',
+        boxShadow: '0 6px 20px rgba(0,0,0,0.5)', cursor: 'pointer'
+      });
+      document.body.appendChild(btn);
+    }
+    btn.addEventListener('click', () => {
+      modal.classList.add('open');
+      renderBoard();
+    });
+  }
+
+  document.getElementById('zzz-close-btn').addEventListener('click', () => {
+    modal.classList.remove('open');
+    stopBattleLoop();
+  });
+
+  function initFloor() {
+    board = Array.from({ length: 5 }, () => Array(5).fill('empty'));
+    player = { x: 0, y: 0 };
+    board[4][4] = 'exit';
+
+    const coords = [];
+    for (let y = 0; y < 5; y++) {
+      for (let x = 0; x < 5; x++) {
+        if ((x === 0 && y === 0) || (x === 4 && y === 4)) continue;
+        coords.push({ x, y });
+      }
+    }
+    // シャッフル
+    for (let i = coords.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [coords[i], coords[j]] = [coords[j], coords[i]];
+    }
+
+    const enemyCount = Math.min(4, 1 + Math.floor((depth + 1) / 2));
+    const etherCount = 3;
+    const coinCount = 6;
+
+    let idx = 0;
+    for (let i = 0; i < enemyCount; i++) board[coords[idx].y][coords[idx++].x] = 'enemy';
+    for (let i = 0; i < etherCount; i++) board[coords[idx].y][coords[idx++].x] = 'ether';
+    for (let i = 0; i < coinCount; i++) board[coords[idx].y][coords[idx++].x] = 'coin';
+
+    updateHud();
+    renderBoard();
+  }
+
+  function resetGame() {
+    score = 0;
+    depth = 1;
+    corruption = 0;
+    gameOver = false;
+    stopBattleLoop();
+    battleOverlay.classList.remove('active');
+    inBattle = false;
+    initFloor();
+  }
+
+  function remainingEnemies() {
+    let count = 0;
+    for (let y = 0; y < 5; y++) {
+      for (let x = 0; x < 5; x++) {
+        if (board[y][x] === 'enemy') count++;
+      }
+    }
+    return count;
+  }
+
+  function updateHud() {
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('zzz_hdd_best', bestScore);
+    }
+    document.getElementById('zzz-depth').textContent = depth + 'F';
+    document.getElementById('zzz-score').textContent = score;
+    document.getElementById('zzz-best').textContent = bestScore;
+
+    corruption = Math.max(0, Math.min(100, corruption));
+    const cVal = document.getElementById('zzz-corrupt-val');
+    cVal.textContent = corruption + '%';
+    cVal.style.color = corruption >= 80 ? '#ff5500' : (corruption >= 50 ? '#d8ff00' : '#00f0ff');
+    document.getElementById('zzz-corrupt-bar').style.width = corruption + '%';
+
+    const enemies = remainingEnemies();
+    const missionEl = document.getElementById('zzz-mission-text');
+    if (gameOver) {
+      missionEl.textContent = '⚠️ 侵食限界突破！下のボタンから再挑戦';
+      missionEl.style.color = '#ff5500';
+      missionEl.style.borderColor = '#ff5500';
+    } else if (enemies > 0) {
+      missionEl.textContent = '👾 残りエーテリアス ' + enemies + '体 を撃破して出口🔒を開放！';
+      missionEl.style.color = '#d8ff00';
+      missionEl.style.borderColor = 'rgba(216, 255, 0, 0.35)';
+    } else {
+      missionEl.textContent = '✅ 出口開放！右下の 🚪 EXIT へ進め！';
+      missionEl.style.color = '#00f0ff';
+      missionEl.style.borderColor = '#00f0ff';
+    }
+  }
+
+  function renderBoard() {
+    const enemiesLeft = remainingEnemies();
+    gridEl.innerHTML = '';
+
+    for (let y = 0; y < 5; y++) {
+      for (let x = 0; x < 5; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'zzz-tv-cell';
+        const isPlayer = (player.x === x && player.y === y);
+        const isAdj = (Math.abs(player.x - x) + Math.abs(player.y - y) === 1);
+        const type = board[y][x];
+
+        if (isPlayer) {
+          cell.classList.add('player');
+          cell.innerHTML = '🐰<div class="zzz-tv-sub">EOUS</div>';
+        } else {
+          if (isAdj && !gameOver) cell.classList.add('adjacent');
+          if (type === 'coin') {
+            cell.innerHTML = '🪙<div class="zzz-tv-sub">+100</div>';
+          } else if (type === 'ether') {
+            cell.innerHTML = '🧪<div class="zzz-tv-sub">-15%</div>';
+          } else if (type === 'enemy') {
+            cell.innerHTML = '👾<div class="zzz-tv-sub" style="color:#ff5500;">BATTLE</div>';
+          } else if (type === 'exit') {
+            if (enemiesLeft === 0) {
+              cell.classList.add('exit-open');
+              cell.innerHTML = '🚪<div class="zzz-tv-sub" style="color:#00f0ff;">EXIT</div>';
+            } else {
+              cell.innerHTML = '🔒<div class="zzz-tv-sub">LOCK</div>';
+            }
+          } else {
+            cell.innerHTML = '<span style="color:#383d4a;font-size:13px;">TV</span>';
+          }
+        }
+
+        cell.addEventListener('click', () => {
+          if (isAdj) movePlayer(x - player.x, y - player.y);
+        });
+        gridEl.appendChild(cell);
+      }
+    }
+  }
+
+  function movePlayer(dx, dy) {
+    if (gameOver || inBattle) return;
+    const nx = player.x + dx;
+    const ny = player.y + dy;
+    if (nx < 0 || nx >= 5 || ny < 0 || ny >= 5) return;
+
+    const tile = board[ny][nx];
+    if (tile === 'exit' && remainingEnemies() > 0) {
+      judgeText.textContent = '🔒 まだ敵が残っている！';
+      return;
+    }
+
+    player.x = nx;
+    player.y = ny;
+    corruption += 4;
+
+    if (tile === 'coin') {
+      score += 100;
+      board[ny][nx] = 'empty';
+    } else if (tile === 'ether') {
+      corruption -= 15;
+      score += 30;
+      board[ny][nx] = 'empty';
+    } else if (tile === 'enemy') {
+      startBattle(nx, ny);
+    } else if (tile === 'exit') {
+      score += 300 * depth;
+      depth++;
+      corruption = Math.max(0, corruption - 20);
+      initFloor();
+      return;
+    }
+
+    if (corruption >= 100) {
+      corruption = 100;
+      gameOver = true;
+    }
+    updateHud();
+    renderBoard();
+  }
+
+  // ===== 極限支援パリィバトル =====
+  function startBattle(x, y) {
+    inBattle = true;
+    battleTargetPos = { x, y };
+    enemyHp = depth >= 3 ? 3 : 2;
+    ringProgress = 0;
+    lastFrameTime = performance.now();
+    judgeText.textContent = '黄色の枠に重なる瞬間にタップ！';
+    judgeText.style.color = '#d8ff00';
+    updateEnemyHpText();
+    battleOverlay.classList.add('active');
+    battleRaf = requestAnimationFrame(stepBattle);
+  }
+
+  function stopBattleLoop() {
+    if (battleRaf) {
+      cancelAnimationFrame(battleRaf);
+      battleRaf = null;
+    }
+  }
+
+  function updateEnemyHpText() {
+    document.getElementById('zzz-enemy-hp').textContent = '敵シールド: ' + '❤️'.repeat(Math.max(0
 </body>
 </html>
