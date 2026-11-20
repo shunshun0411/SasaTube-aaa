@@ -3018,6 +3018,58 @@
           enemies.push({
             x: 25 + Math.random() * 290, y: -20,
             hp: isBoss ? 12 + stgLv * 4 : 1 + Math.floor(stgScore / 1500),
-            r: isBoss ?
+            <!-- ===== ヘッダー統合 ＆ 浮遊ボタン非表示パッチ ===== -->
+<style>
+  /* 右下に浮かぶ広告っぽいボタンを完全に非表示 */
+  #sasa-arcade-trigger,
+  #sasa-open-zzz-btn {
+    display: none !important;
+  }
+</style>
+
+<script>
+(function() {
+  function mountCleanHeaderGameBtn() {
+    if (document.getElementById('sasa-clean-game-tab')) return;
+
+    // 「お気に入り / 履歴」タブを探して、そのすぐ横に同じ見た目で配置
+    const allBtns = Array.from(document.querySelectorAll('button'));
+    const favBtn = allBtns.find(b => b.textContent && b.textContent.includes('お気に入り'));
+
+    const gameBtn = document.createElement('button');
+    gameBtn.id = 'sasa-clean-game-tab';
+    gameBtn.type = 'button';
+    gameBtn.innerHTML = '🎮 ゲーム';
+
+    if (favBtn && favBtn.parentElement) {
+      gameBtn.className = favBtn.className;
+      gameBtn.style.marginLeft = '4px';
+      favBtn.parentElement.insertBefore(gameBtn, favBtn.nextSibling);
+    } else {
+      // 万が一見つからない場合は右上の「URL再生」の横に同じトーンで配置
+      const urlBtn = allBtns.find(b => b.textContent && b.textContent.includes('URL再生'));
+      if (urlBtn && urlBtn.parentElement) {
+        gameBtn.className = urlBtn.className;
+        urlBtn.parentElement.insertBefore(gameBtn, urlBtn);
+      }
+    }
+
+    gameBtn.addEventListener('click', () => {
+      const arcadeModal = document.getElementById('sasa-arcade-modal');
+      if (arcadeModal) {
+        arcadeModal.classList.add('open');
+        const backLobby = document.getElementById('sa-back-lobby');
+        if (backLobby) backLobby.click();
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', mountCleanHeaderGameBtn);
+  } else {
+    mountCleanHeaderGameBtn();
+  }
+})();
+</script>
 </body>
 </html>
