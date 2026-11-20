@@ -3027,31 +3027,39 @@
   }
 </style>
 
+<!-- ===== ヘッダー統合 ＆ 浮遊ボタン完全非表示 ===== -->
+<style>
+  #sasa-arcade-trigger,
+  #sasa-open-zzz-btn,
+  body > button[style*="position: fixed"],
+  body > button[style*="position:fixed"] {
+    display: none !important;
+  }
+</style>
+
 <script>
 (function() {
-  function mountCleanHeaderGameBtn() {
+  function setupCleanHeaderBtn() {
     if (document.getElementById('sasa-clean-game-tab')) return;
 
-    // 「お気に入り / 履歴」タブを探して、そのすぐ横に同じ見た目で配置
+    document.querySelectorAll('body > button').forEach(b => {
+      if (b.textContent && (b.textContent.includes('ZZZ') || b.textContent.includes('ARCADE'))) {
+        b.remove();
+      }
+    });
+
     const allBtns = Array.from(document.querySelectorAll('button'));
     const favBtn = allBtns.find(b => b.textContent && b.textContent.includes('お気に入り'));
 
     const gameBtn = document.createElement('button');
     gameBtn.id = 'sasa-clean-game-tab';
     gameBtn.type = 'button';
-    gameBtn.innerHTML = '🎮 ゲーム';
+    gameBtn.textContent = '🎮 ゲーム';
 
     if (favBtn && favBtn.parentElement) {
       gameBtn.className = favBtn.className;
       gameBtn.style.marginLeft = '4px';
       favBtn.parentElement.insertBefore(gameBtn, favBtn.nextSibling);
-    } else {
-      // 万が一見つからない場合は右上の「URL再生」の横に同じトーンで配置
-      const urlBtn = allBtns.find(b => b.textContent && b.textContent.includes('URL再生'));
-      if (urlBtn && urlBtn.parentElement) {
-        gameBtn.className = urlBtn.className;
-        urlBtn.parentElement.insertBefore(gameBtn, urlBtn);
-      }
     }
 
     gameBtn.addEventListener('click', () => {
@@ -3064,10 +3072,11 @@
     });
   }
 
+  setTimeout(setupCleanHeaderBtn, 300);
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountCleanHeaderGameBtn);
+    document.addEventListener('DOMContentLoaded', setupCleanHeaderBtn);
   } else {
-    mountCleanHeaderGameBtn();
+    setupCleanHeaderBtn();
   }
 })();
 </script>
