@@ -2580,6 +2580,11 @@
   resetGame();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectZzzButton);
   else injectZzzButton();
+  const zBtn = document.createElement('button');
+  zBtn.textContent = '⚡ ZZZゲーム';
+  zBtn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99998;background:#d8ff00;color:#111;border:none;border-radius:999px;padding:12px 18px;font-weight:900;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,0.6);cursor:pointer;';
+  zBtn.onclick = () => { modal.classList.add('open'); renderBoard(); };
+  document.body.appendChild(zBtn);
 })();
 </script>
 </body>
