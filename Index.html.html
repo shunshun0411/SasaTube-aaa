@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Sasa Tube - YouTube検索＆動画プレイヤー</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              yt: {
+                dark: '#0f0f0f',
+                darkCard: '#1a1a1a',
+                darkElevated: '#272727',
+                darkHover: '#3f3f3f',
+                red: '#ff0000',
+                redHover: '#cc0000'
+              }
+            }
+          }
+        }
+      };
+    }
+  </script>
+  <style>
+    /* 万が一CDNが制限された場合でも崩れないための基本フォールバック */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      margin: 0;
+    }
+    html.dark body {
+      background-color: #0f0f0f;
+      color: #f3f4f6;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.35);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.65);
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-yt-dark dark:text-gray-100 transition-colors duration-200 min-h-screen flex flex-col">
+
+  <!-- トースト通知コンテナ (alert()の代替) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- URLで直接再生モーダル -->
+  <div id="url-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-[#212121] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-800">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold flex items-center gap-2">
+          <svg class="w-5 h-5 text-yt-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>URLまたは動画IDで直接再生</span>
+        </h3>
+        <button id="close-url-modal" type="button" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-yt-darkElevated text-gray-500 dark:text-gray-400">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        動画のURL（例: <code class="bg-gray-100 dark:bg-black/40 px-1.5 py-0.5 rounded text-xs">https://youtu.be/...</code>）または11桁の動画IDを入力すると即座にこのページ内のプレイヤーで再生します。
+      </p>
+      <form id="url-play-form" class="space-y-4">
+        <div>
+          <label for="youtube-url-input" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">動画URL / 11桁の動画ID <span class="text-yt-red">*</span></label>
+          <input type="text" id="youtube-url-input" required placeholder="https://www.youtube.com/watch?v=jfKfPfyJRdk"
+            class="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#121212] border border-gray-300 dark:border-gray-700 focus:outline-none focus:border-blue-500 text-sm">
+        </div>
+        <div>
+          <label for="youtube-title-input" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">カスタムタイトル（任意）</label>
+          <input type="text" id="youtube-title-input" placeholder="例: お気に入り動画"
+            class="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#121212] border border-gray-300 dark:border-gray-700 focus:outline-none focus:border-blue-500 text-sm">
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" id="cancel-url-modal" class="px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-100 dark:hover:bg-yt-darkElevated transition">
+            キャンセル
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-full text-sm font-medium bg-yt-red hover:bg-yt-redHover text-white shadow-md transition flex items-center gap-2">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>今すぐ再生</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ヘッダーナビゲーション -->
+  <header class="sticky top-0 z-40 bg-white/95 dark:bg-yt-dark/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-3 sm:px-5 py-2.5">
+    <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      
+      <!-- ロゴ（クリックでホームに戻る） -->
+      <button id="logo-btn" type="button" class="flex items-center gap-2 shrink-0 group text-left">
+        <div class="w-9 h-7 bg-yt-red rounded-lg flex items-center justify-center shadow-sm group-hover:bg-yt-redHover transition">
+          <svg class="w-4 h-4 text-white fill-current ml-0.5" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-lg sm:text-xl font-bold tracking-tight leading-none">Sasa Tube</span>
+          <span class="text-[10px] text-gray-500 dark:text-gray-400 hidden sm:inline leading-tight">No-Cookie / 並列検索対応</span>
+        </div>
+      </button>
+
+      <!-- 検索バー（履歴サジェストドロップダウン付き） -->
+      <div class="flex-1 max-w-2xl relative" id="search-container">
+        <form id="search-form" class="relative flex items-center">
+          <input type="text" id="search-input" autocomplete="off"
+            placeholder="キーワードで検索（例: ボカロ, ゲーム実況, 作業用BGM）..."
+            class="w-full pl-4 pr-20 py-2 sm:py-2.5 rounded-full bg-gray-100 dark:bg-[#121212] border border-gray-300 dark:border-gray-700 focus:outline-none focus:border-blue-500 text-sm transition">
+          <button type="button" id="clear-search-btn" title="クリア"
+            class="hidden absolute right-12 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+          <button type="submit" id="search-submit-btn" title="検索"
+            class="absolute right-0 top-0 bottom-0 px-4 sm:px-5 rounded-r-full bg-gray-200 dark:bg-yt-darkElevated hover:bg-gray-300 dark:hover:bg-yt-darkHover border-l border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 transition flex items-center justify-center">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </button>
+        </form>
+
+        <!-- 検索履歴サジェストドロップダウン -->
+        <div id="search-history-dropdown" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-[#212121] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+          <div class="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+            <span>最近の検索履歴</span>
+            <button type="button" id="clear-search-history-btn" class="text-red-500 hover:underline">履歴を消去</button>
+          </div>
+          <ul id="search-history-list" class="max-h-60 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800/50">
+            <!-- JSで動的生成 -->
+          </ul>
+        </div>
+      </div>
+
+      <!-- 右側アクションボタン群 -->
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <!-- お気に入り・履歴ボタン -->
+        <button id="header-library-btn" type="button" title="お気に入り・視聴履歴"
+          class="relative flex items-center gap-1.5 px-3 py-2 rounded-full bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover text-sm font-medium transition">
+          <svg class="w-4 h-4 text-yt-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+          <span class="hidden md:inline">保存 / 履歴</span>
+          <span id="header-saved-badge" class="px-1.5 py-0.2 text-[11px] rounded-full bg-yt-red text-white font-bold">0</span>
+        </button>
+
+        <!-- URL直接再生ボタン -->
+        <button id="open-url-modal-btn" type="button" title="URLから再生"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-full bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover text-sm font-medium transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span class="hidden lg:inline">URL再生</span>
+        </button>
+
+        <!-- テーマ切り替えボタン -->
+        <button id="theme-toggle-btn" type="button" title="ダーク/ライトモード切替"
+          class="p-2.5 rounded-full bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover text-gray-700 dark:text-gray-200 transition">
+          <svg id="theme-icon-sun" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <svg id="theme-icon-moon" class="w-4 h-4 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- サブヘッダー：人気検索タグ＆APIステータスバー -->
+  <div class="bg-white dark:bg-[#141414] border-b border-gray-200 dark:border-gray-800/80 px-3 sm:px-5 py-2">
+    <div class="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2">
+      
+      <!-- ワンクリック人気検索タグ -->
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5" id="quick-tags-bar">
+        <button type="button" data-view="home" class="nav-pill active px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-900 text-white dark:bg-white dark:text-gray-900 transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5 text-yt-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          <span>ホーム・トレンド</span>
+        </button>
+        <button type="button" data-view="library" class="nav-pill px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-gray-100 text-gray-700 dark:bg-yt-darkElevated dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-yt-darkHover transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>
+          <span>お気に入り / 履歴</span>
+        </button>
+        <div class="h-4 w-[1px] bg-gray-300 dark:bg-gray-700 mx-1 shrink-0"></div>
+        <!-- JSで人気検索タグを追加 -->
+      </div>
+
+      <!-- 検索APIステータス＆インスタンス切替 -->
+      <div class="flex items-center justify-between md:justify-end gap-2 text-xs shrink-0">
+        <div id="api-status-badge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-yt-darkElevated text-gray-600 dark:text-gray-300">
+          <span id="api-status-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span id="api-status-text">検索エンジン準備完了</span>
+        </div>
+        <button id="retry-search-btn" type="button" title="別経路から再検索"
+          class="hidden items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover border border-gray-200 dark:border-gray-700 text-xs font-medium transition">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          <span>再取得</span>
+        </button>
+        <select id="api-instance-select" title="検索エンジンを選択"
+          class="px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-yt-darkElevated border border-gray-200 dark:border-gray-700 text-xs text-gray-700 dark:text-gray-200 focus:outline-none cursor-pointer">
+          <option value="auto">検索: 並列API + 直接取得 (推奨)</option>
+          <option value="ytdirect">直接取得のみ</option>
+          <option value="piped">Piped / Invidious APIのみ</option>
+          <option value="local">内蔵リスト検索</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ領域 -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-5 py-5">
+
+    <!-- ===================================================================
+         1. 視聴モード（プレイヤー展開ビュー：動画クリック時に表示）
+         =================================================================== -->
+    <section id="watch-section" class="hidden mb-8">
+      <!-- 検索結果/一覧へ戻るバー -->
+      <div class="mb-3 flex items-center justify-between">
+        <button id="close-player-btn" type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-200/80 dark:bg-yt-darkElevated hover:bg-gray-300 dark:hover:bg-yt-darkHover text-xs sm:text-sm font-medium transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+          <span>プレイヤーを閉じて一覧に戻る</span>
+        </button>
+        <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">Sasa Tube シアタープレイヤー</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 左カラム：16:9 マルチエンジンプレイヤー＆詳細情報 -->
+        <div class="lg:col-span-8 flex flex-col">
+          <!-- 再生モード切り替えバー -->
+          <div id="player-engine-bar" class="mb-2.5 p-2 rounded-2xl bg-white dark:bg-yt-darkCard border border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button type="button" data-engine="nocookie" class="engine-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-yt-red text-white transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>No-Cookie再生 (推奨)</span>
+              </button>
+              <button type="button" data-engine="edu" class="engine-tab-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-100 dark:bg-yt-darkElevated text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-yt-darkHover transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                <span>Education再生</span>
+              </button>
+              <button type="button" data-engine="stream" class="engine-tab-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-100 dark:bg-yt-darkElevated text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-yt-darkHover transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>ダイレクト再生 (MP4)</span>
+              </button>
+              <button type="button" data-engine="embed" class="engine-tab-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-100 dark:bg-yt-darkElevated text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-yt-darkHover transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+                <span>代替Embed</span>
+              </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <!-- 画質切替セレクト（ダイレクト再生時） -->
+              <select id="stream-quality-select" title="画質を選択"
+                class="hidden px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-yt-darkElevated border border-gray-200 dark:border-gray-700 text-xs font-medium focus:outline-none cursor-pointer">
+              </select>
+
+              <!-- サーバー切替ボタン（代替Embed時） -->
+              <button type="button" id="switch-server-btn"
+                class="hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover border border-gray-200 dark:border-gray-700 font-medium transition">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                <span>サーバー切替</span>
+              </button>
+
+              <!-- HTMLファイル保存ボタン -->
+              <button type="button" id="download-html-btn" title="このアプリを1つのHTMLファイルとして端末に保存します"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover border border-gray-200 dark:border-gray-700 font-medium transition">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                <span>HTML保存</span>
+              </button>
+
+              <span id="player-engine-status" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
+                No-Cookie 準備完了
+              </span>
+            </div>
+          </div>
+
+          <!-- 16:9 プレイヤー表示領域（すべてページ内で完結再生） -->
+          <div id="player-stage" class="relative w-full pt-[56.25%] bg-black rounded-2xl overflow-hidden shadow-xl border border-gray-200 dark:border-gray-800">
+            <!-- 1. 動的生成iframeコンテナ（No-Cookie / Education / 代替Embed） -->
+            <div id="iframe-player-wrapper" class="absolute inset-0 w-full h-full"></div>
+
+            <!-- 2. HTML5 ダイレクトストリームプレイヤー -->
+            <div id="direct-video-wrapper" class="hidden absolute inset-0 w-full h-full bg-black">
+              <video id="direct-video-player" class="w-full h-full object-contain" controls playsinline autoplay></video>
+              <div id="stream-loading-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white px-4 text-center">
+                <div class="w-9 h-9 border-4 border-yt-red border-t-transparent rounded-full animate-spin mb-3"></div>
+                <p id="stream-loading-text" class="text-xs sm:text-sm font-semibold">動画ストリームを並列取得中...</p>
+                <p class="text-[11px] text-gray-400 mt-1">映像データを直接読み込んでいます</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 再生モード案内バー（ページ内切替ナビ） -->
+          <div class="mt-2.5 px-3.5 py-2.5 rounded-xl bg-gray-100 dark:bg-yt-darkElevated/80 border border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-700 dark:text-gray-300">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              <span id="player-notice-text">YouTube No-Cookie プレイヤーで再生中です。映らない場合は右のボタンで方式を切り替えられます。</span>
+            </span>
+            <button type="button" id="quick-switch-engine-btn"
+              class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 font-semibold hover:opacity-90 transition shrink-0">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+              <span>別の再生方式に切替</span>
+            </button>
+          </div>
+
+          <!-- 動画タイトル -->
+          <h1 id="watch-title" class="mt-4 text-lg sm:text-xl font-bold leading-snug">
+            動画タイトル
+          </h1>
+
+          <!-- チャンネル情報＆アクションバー -->
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-gray-200 dark:border-gray-800">
+            <div class="flex items-center gap-3">
+              <div id="watch-avatar" class="w-10 h-10 rounded-full bg-gradient-to-tr from-red-600 to-amber-500 flex items-center justify-center text-white font-bold text-base shrink-0">
+                S
+              </div>
+              <div>
+                <div id="watch-channel" class="font-semibold text-sm sm:text-base leading-tight">チャンネル名</div>
+                <div id="watch-meta" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">再生回数 • 投稿日</div>
+              </div>
+              <button id="watch-search-channel-btn" type="button" title="このチャンネル名で検索"
+                class="ml-1 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover transition">
+                チャンネル検索
+              </button>
+            </div>
+
+            <!-- アクションボタン群 -->
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="watch-like-btn" type="button" class="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover text-sm font-medium transition">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z"/></svg>
+                <span id="watch-like-text">高評価</span>
+              </button>
+
+              <button id="watch-save-btn" type="button" class="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover text-sm font-medium transition">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+                <span id="watch-save-text">保存</span>
+              </button>
+
+              <button id="watch-share-btn" type="button" class="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gray-100 dark:bg-yt-darkElevated hover:bg-gray-200 dark:hover:bg-yt-darkHover text-sm font-medium transition">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                <span>動画IDコピー</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 概要欄ボックス -->
+          <div id="watch-desc-box" class="mt-3 p-3.5 rounded-2xl bg-gray-100 dark:bg-yt-darkElevated/70 hover:bg-gray-200/70 dark:hover:bg-yt-darkElevated transition cursor-pointer">
+            <p id="watch-description" class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line line-clamp-2">
+              動画の説明文
+            </p>
+            <span id="watch-desc-toggle" class="inline-block mt-1.5 text-xs font-bold">もっと見る</span>
+          </div>
+        </div>
+
+        <!-- 右カラム：関連動画 / 検索結果の続き -->
+        <aside class="lg:col-span-4 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-bold flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-yt-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/></svg>
+              <span>関連動画・検索結果の続き</span>
+            </h2>
+            <span id="related-count" class="text-xs text-gray-500 dark:text-gray-400"></span>
+          </div>
+          <div id="related-videos-list" class="flex flex-col gap-2.5 max-h-[calc(100vh-180px)] overflow-y-auto pr-1">
+            <!-- JSで関連動画カードを動的生成 -->
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         2. 検索結果＆ホーム一覧グリッドセクション
+         =================================================================== -->
+    <section id="browse-section">
+      <!-- セクションヘッダー -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2">
+          <h2 id="browse-heading" class="text-base sm:text-lg font-bold flex items-center gap-2">
+            <svg class="w-5 h-5 text-yt-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+            <span>おすすめ・トレンド動画</span>
+          </h2>
+          <span id="browse-result-count" class="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-yt-darkElevated text-xs font-medium text-gray-600 dark:text-gray-300"></span>
+        </div>
+
+        <!-- ライブラリ（お気に入り/履歴）表示時のサブタブ -->
+        <div id="library-subtabs" class="hidden items-center gap-2">
+          <button id="subtab-favorites" type="button" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-yt-red text-white transition">
+            お気に入り保存 (<span id="fav-count-num">0</span>)
+          </button>
+          <button id="subtab-history" type="button" class="px-3.5 py-1.5 rounded-full text-xs font-bold bg-gray-200 dark:bg-yt-darkElevated text-gray-700 dark:text-gray-300 transition">
+            視聴履歴 (<span id="hist-count-num">0</span>)
+          </button>
+          <button id="clear-library-btn" type="button" class="px-3 py-1.5 rounded-full text-xs text-red-500 hover:bg-red-500/10 transition flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            <span>クリア</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ローディングスケルトン -->
+      <div id="loading-grid" class="hidden grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- JSで8個のスケルトンを生成 -->
+      </div>
+
+      <!-- 動画カードグリッド -->
+      <div id="video-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+        <!-- JSで動画カードを動的生成 -->
+      </div>
+
+      <!-- 空状態表示 -->
+      <div id="empty-state" class="hidden flex-col items-center justify-center py-16 px-4 text-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-800 mt-4">
+        <svg class="w-12 h-12 text-gray-400 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+        <h3 id="empty-title" class="text-base font-bold">動画が見つかりませんでした</h3>
+        <p id="empty-desc" class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-md">
+          別のキーワードで検索するか、上部の「URL再生」から動画のURLを直接貼り付けて再生してください。
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. 定数・設定・内蔵データベース（起動即表示＆オフラインフォールバック用）
+    // =========================================================================
+    const STORAGE_KEYS = {
+      THEME: 'sasatube_theme_v1',
+      FAVORITES: 'sasatube_favorites_v1',
+      HISTORY: 'sasatube_history_v1',
+      SEARCH_HISTORY: 'sasatube_search_history_v1'
+    };
+
+    const QUICK_TAGS = [
+      '作業用BGM', 'ボカロ', 'Lofi', 'ゲーム実況', 'マインクラフト',
+      'J-POP', 'ピアノ', '料理', '猫', 'プログラミング', '宇宙', 'ニュース'
+    ];
+
+    const PIPED_INSTANCES = [
+      'https://pipedapi.kavin.rocks',
+      'https://pipedapi.adminforge.de',
+      'https://api.piped.private.coffee',
+      'https://pipedapi.drgns.space'
+    ];
+
+    const INVIDIOUS_INSTANCES = [
+      'https://inv.nadeko.net',
+      'https://invidious.nerdvpn.de',
+      'https://invidious.jing.rocks',
+      'https://iv.datura.network'
+    ];
+
+    const EMBED_SERVERS = [
+      'https://inv.nadeko.net',
+      'https://invidious.nerdvpn.de',
+      'https://invidious.jing.rocks',
+      'https://piped.video'
+    ];
+
+    const BUILTIN_VIDEOS = [
+      {
+        id: 'jfKfPfyJRdk',
+        title: 'lofi hip hop radio 📚 beats to relax/study to',
+        channel: 'Lofi Girl',
+        views: 'ライブ配信中',
+        uploaded: '24時間配信',
+        duration: 'LIVE',
+        tags: ['作業用BGM', 'Lofi', '音楽'],
+        description: '勉強・作業・リラックスに最適な24時間Lofiヒップホップラジオ。'
+      },
+      {
+        id: '4xDzrJKXOOY',
+        title: 'synthwave radio 🌌 beats to chill/game to',
+        channel: 'Lofi Girl',
+        views: 'ライブ配信中',
+        uploaded: '24時間配信',
+        duration: 'LIVE',
+        tags: ['作業用BGM', 'Lofi', 'ゲーム実況'],
+        description: 'ゲームや深夜の作業にぴったりなシンセウェーブBGM。'
+      },
+      {
+        id: 'aqz-KE-bpKQ',
+        title: 'Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film',
+        channel: 'Blender',
+        views: '2,100万回視聴',
+        uploaded: '定番名作',
+        duration: '10:34',
+        tags: ['アニメ', '3D', '映画'],
+        description: 'Blender Foundation公式のオープンソース3D短編アニメーション映画。'
+      },
+      {
+        id: 'LXb3EKWsInQ',
+        title: 'COSTA RICA IN 4K 60fps HDR (Ultra HD)',
+        channel: 'Jacob + Katie Schwarz',
+        views: '9,800万回視聴',
+        uploaded: '高画質映像',
+        duration: '05:14',
+        tags: ['自然', '4K', '風景'],
+        description: 'コスタリカの美しい熱帯雨林と野生動物を収めた4K HDR映像。'
+      },
+      {
+        id: 'xRPjKQtRXR8',
+        title: 'NASA Live: Official Stream of NASA TV\'s Media Channel',
+        channel: 'NASA',
+        views: 'ライブ配信中',
+        uploaded: '公式ライブ',
+        duration: 'LIVE',
+        tags: ['宇宙', '科学', 'ニュース'],
+        description: 'NASA公式の宇宙・国際宇宙ステーション（ISS）ライブ映像。'
+      },
+      {
+        id: '21X5lGlDOfg',
+        title: 'NASA Live: Earth From Space (HDVR) - ISS Live Feed',
+        channel: 'NASA Video',
+        views: 'ライブ配信中',
+        uploaded: 'ISS中継',
+        duration: 'LIVE',
+        tags: ['宇宙', '自然', '作業用BGM'],
+        description: '国際宇宙ステーションから見た地球のリアルタイム映像。'
+      },
+      {
+        id: 'rUxyKA_-grg',
+        title: 'lofi hip hop radio 💤 beats to sleep/chill to',
+        channel: 'Lofi Girl',
+        views: 'ライブ配信中',
+        uploaded: '24時間配信',
+        duration: 'LIVE',
+        tags: ['作業用BGM', 'Lofi', '睡眠'],
+        description: '寝る前や静かに過ごしたい夜におすすめのチル系BGM。'
+      },
+      {
+        id: '5qap5aO4i9A',
+        title: 'Chillhop Radio - jazzy & lofi hip hop beats 🐾',
+        channel: 'Chillhop Music',
+        views: '4,500万回視聴',
+        uploaded: '作業用BGM',
+        duration: 'LIVE',
+        tags: ['作業用BGM', 'Lofi', 'ピアノ'],
+        description: 'ジャズテイストの心地よいローファイビート集。'
+      },
+      {
+        id: '1La4QzGeaaQ',
+        title: 'Peru 8K HDR 60FPS (FUHD)',
+        channel: 'Jacob + Katie Schwarz',
+        views: '3,400万回視聴',
+        uploaded: '高画質映像',
+        duration: '05:38',
+        tags: ['自然', '風景', '4K'],
+        description: 'ペルーの壮大なアンデス山脈と歴史遺産を巡る映像。'
+      },
+      {
+        id: 'tO01J-M3g0U',
+        title: '【作業用BGM】雨音と静かなピアノ音楽 - 集中・勉強・読書用',
+        channel: 'Relaxing Piano Studio',
+        views: '320万回視聴',
+        uploaded: '1年前',
+        duration: '1:02:15',
+        tags: ['作業用BGM', 'ピアノ', '睡眠'],
+        description: '優しい雨の音と穏やかなピアノソロを組み合わせた1時間の作業用BGM。'
+      },
+      {
+        id: 'jNQXAC9IVRw',
+        title: 'Me at the zoo (YouTube最初の動画)',
+        channel: 'jawed',
+        views: '3.3億回視聴',
+        uploaded: '19年前',
+        duration: '00:19',
+        tags: ['歴史', '動物', '定番'],
+        description: '2005年4月23日にYouTubeへ最初にアップロードされた歴史的動画。'
+      },
+      {
+        id: 'kJQP7kiw5Fk',
+        title: 'Luis Fonsi - Despacito ft. Daddy Yankee',
+        channel: 'Luis Fonsi',
+        views: '85億回視聴',
+        uploaded: '7年前',
+        duration: '04:42',
+        tags: ['音楽', 'J-POP', 'ヒット曲'],
+        description: '世界中で大ヒットを記録したミュージックビデオ。'
+      }
+    ];
+
+    // =========================================================================
+    // 2. アプリケーション状態管理
+    // =========================================================================
+    const state = {
+      view: 'home', // 'home' | 'search' | 'library'
+      libraryTab: 'favorites', // 'favorites' | 'history'
+      currentQuery: '',
+      videos: [],
+      currentVideo: null,
+      playerEngine: 'nocookie', // 'nocookie' | 'edu' | 'stream' | 'embed'
+      embedServerIndex: 0,
+      streamSources: [],
+      favorites: [],
+      history: [],
+      likedIds: new Set(),
+      searchHistory: [],
+      descExpanded: false
+    };
+
+    // =========================================================================
+    // 3. ユーティリティ関数
+    // =========================================================================
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getThumbUrl(video) {
+      if (video.thumbnail && video.thumbnail.startsWith('http')) {
+        return video.thumbnail;
+      }
+      return `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`;
+    }
+
+    function formatDuration(sec) {
+      if (!sec || sec <= 0) return 'LIVE';
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = Math.floor(sec % 60);
+      if (h > 0) {
+        return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+      return `${m}:${String(s).padStart(2, '0')}`;
+    }
+
+    function formatViews(num) {
+      if (typeof num === 'string') return num;
+      if (!num || num <= 0) return '視聴回数非公開';
+      if (num >= 100000000) return `${(num / 100000000).toFixed(1)}億回視聴`;
+      if (num >= 10000) return `${Math.floor(num / 10000)}万回視聴`;
+      return `${num.toLocaleString()}回視聴`;
+    }
+
+    function extractVideoId(input) {
+      if (!input) return null;
+      const trimmed = input.trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+      const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/shorts\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+        /[?&]v=([a-zA-Z0-9_-]{11})/
+      ];
+      for (const regex of patterns) {
+        const match = trimmed.match(regex);
+        if (match && match[1]) return match[1];
+      }
+      return null;
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const el = document.createElement('div');
+      const bgClass = type === 'error'
+        ? 'bg-red-600 text-white'
+        : type === 'success'
+        ? 'bg-emerald-600 text-white'
+        : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900';
+      el.className = `pointer-events-auto px-4 py-2.5 rounded-xl shadow-lg text-xs sm:text-sm font-medium transition-all duration-300 transform translate-y-2 opacity-0 ${bgClass}`;
+      el.textContent = message;
+      container.appendChild(el);
+      requestAnimationFrame(() => {
+        el.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 300);
+      }, 3200);
+    }
+
+    function setApiStatus(text, color = 'emerald', showRetry = false) {
+      const textEl = document.getElementById('api-status-text');
+      const dotEl = document.getElementById('api-status-dot');
+      const retryBtn = document.getElementById('retry-search-btn');
+      if (textEl) textEl.textContent = text;
+      if (dotEl) {
+        dotEl.className = `w-2 h-2 rounded-full ${
+          color === 'amber' ? 'bg-amber-400 animate-pulse' :
+          color === 'red' ? 'bg-red-500' : 'bg-emerald-500'
+        }`;
+      }
+      if (retryBtn) {
+        if (showRetry) {
+          retryBtn.classList.remove('hidden');
+          retryBtn.classList.add('inline-flex');
+        } else {
+          retryBtn.classList.add('hidden');
+          retryBtn.classList.remove('inline-flex');
+        }
+      }
+    }
+
+    // =========================================================================
+    // 4. ストレージ管理（メモリ＋安全ラッパー）
+    // =========================================================================
+    function safeGetStorage(key, fallback) {
+      try {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function safeSetStorage(key, value) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+      } catch (e) {
+        // サンドボックス等で制限されている場合はインメモリで継続
+      }
+    }
+
+    function loadStorage() {
+      state.favorites = safeGetStorage(STORAGE_KEYS.FAVORITES, []);
+      state.history = safeGetStorage(STORAGE_KEYS.HISTORY, []);
+      state.searchHistory = safeGetStorage(STORAGE_KEYS.SEARCH_HISTORY, []);
+      updateSavedBadge();
+    }
+
+    function updateSavedBadge() {
+      const badge = document.getElementById('header-saved-badge');
+      const favNum = document.getElementById('fav-count-num');
+      const histNum = document.getElementById('hist-count-num');
+      if (badge) badge.textContent = String(state.favorites.length);
+      if (favNum) favNum.textContent = String(state.favorites.length);
+      if (histNum) histNum.textContent = String(state.history.length);
+    }
+
+    // =========================================================================
+    // 5. テーマ管理
+    // =========================================================================
+    function applyTheme(isDark) {
+      const html = document.documentElement;
+      const sun = document.getElementById('theme-icon-sun');
+      const moon = document.getElementById('theme-icon-moon');
+      if (isDark) {
+        html.classList.add('dark');
+        if (sun) sun.classList.remove('hidden');
+        if (moon) moon.classList.add('hidden');
+      } else {
+        html.classList.remove('dark');
+        if (sun) sun.classList.add('hidden');
+        if (moon) moon.classList.remove('hidden');
+      }
+    }
+
+    function initTheme() {
+      const saved = safeGetStorage(STORAGE_KEYS.THEME, 'dark');
+      applyTheme(saved !== 'light');
+    }
+
+    // =========================================================================
+    // 6. 検索エンジン（YouTube直接パース + Piped/Invidious並列 + 内蔵フォールバック）
+    // =========================================================================
+    async function fetchWithTimeout(url, timeoutMs = 4500) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(id);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+    }
+
+    // YouTube検索HTMLからytInitialDataを解析
+    function parseYtInitialDataFromHtml(html) {
+      const marker = 'var ytInitialData = ';
+      const idx = html.indexOf(marker);
+      if (idx === -1) return [];
+      const start = idx + marker.length;
+      // HTMLパーサーがscriptタグの終了と誤認しないよう文字列を分割して検索
+      const end = html.indexOf('<' + '/script>', start);
+      if (end === -1) return [];
+      let jsonStr = html.slice(start, end).trim();
+      if (jsonStr.endsWith(';')) {
+        jsonStr = jsonStr.slice(0, -1);
+      }
+      const data = JSON.parse(jsonStr);
+      const results = [];
+
+      function walk(node) {
+        if (!node || typeof node !== 'object') return;
+        if (node.videoRenderer && node.videoRenderer.videoId) {
+          const v = node.videoRenderer;
+          const title = v.title?.runs?.map(r => r.text).join('') || '無題の動画';
+          const channel = v.ownerText?.runs?.[0]?.text || v.longBylineText?.runs?.[0]?.text || 'チャンネル';
+          const views = v.shortViewCountText?.simpleText || v.viewCountText?.simpleText || '';
+          const uploaded = v.publishedTimeText?.simpleText || '';
+          const duration = v.lengthText?.simpleText || 'LIVE';
+          const thumb = v.thumbnail?.thumbnails?.slice(-1)[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+          results.push({
+            id: v.videoId,
+            title,
+            channel,
+            views,
+            uploaded,
+            duration,
+            thumbnail: thumb,
+            description: v.detailedMetadataSnippets?.[0]?.snippetText?.runs?.map(r => r.text).join('') || `${channel} の動画`
+          });
+          return;
+        }
+        if (Array.isArray(node)) {
+          for (const item of node) walk(item);
+        } else {
+          for (const key of Object.keys(node)) {
+            walk(node[key]);
+          }
+        }
+      }
+      walk(data);
+      // 重複除去
+      const seen = new Set();
+      return results.filter(item => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      }).slice(0, 24);
+    }
+
+    async function searchViaYouTubeDirect(query) {
+      const targetUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=ja&gl=JP`;
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+      ];
+
+      return Promise.any(
+        proxies.map(async (proxyUrl) => {
+          const res = await fetchWithTimeout(proxyUrl, 5000);
+          const html = await res.text();
+          const parsed = parseYtInitialDataFromHtml(html);
+          if (!parsed || parsed.length === 0) throw new Error('Empty parse');
+          return { items: parsed, source: 'YouTube検索ダイレクト' };
+        })
+      );
+    }
+
+    async function searchViaPipedAndInvidious(query) {
+      const tasks = [];
+
+      for (const base of PIPED_INSTANCES) {
+        tasks.push((async () => {
+          const res = await fetchWithTimeout(`${base}/search?q=${encodeURIComponent(query)}&filter=videos`, 4500);
+          const data = await res.json();
+          const items = (data.items || [])
+            .filter(i => i.url && i.url.includes('/watch?v='))
+            .map(i => {
+              const vid = extractVideoId(i.url);
+              return {
+                id: vid,
+                title: i.title || '無題',
+                channel: i.uploaderName || 'チャンネル',
+                views: formatViews(i.views),
+                uploaded: i.uploadedDate || '',
+                duration: formatDuration(i.duration),
+                thumbnail: i.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+                description: i.shortDescription || ''
+              };
+            })
+            .filter(i => i.id);
+          if (items.length === 0) throw new Error('No items');
+          return { items: items.slice(0, 24), source: new URL(base).hostname };
+        })());
+      }
+
+      for (const base of INVIDIOUS_INSTANCES) {
+        tasks.push((async () => {
+          const res = await fetchWithTimeout(`${base}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, 4500);
+          const data = await res.json();
+          const items = (Array.isArray(data) ? data : [])
+            .filter(i => i.videoId)
+            .map(i => ({
+              id: i.videoId,
+              title: i.title || '無題',
+              channel: i.author || 'チャンネル',
+              views: formatViews(i.viewCount),
+              uploaded: i.publishedText || '',
+              duration: formatDuration(i.lengthSeconds),
+              thumbnail: `https://i.ytimg.com/vi/${i.videoId}/hqdefault.jpg`,
+              description: i.description || ''
+            }));
+          if (items.length === 0) throw new Error('No items');
+          return { items: items.slice(0, 24), source: new URL(base).hostname };
+        })());
+      }
+
+      return Promise.any(tasks);
+    }
+
+    function searchLocalFallback(query) {
+      const q = query.toLowerCase().trim();
+      if (!q) return [...BUILTIN_VIDEOS];
+      const matched = BUILTIN_VIDEOS.filter(v =>
+        v.title.toLowerCase().includes(q) ||
+        v.channel.toLowerCase().includes(q) ||
+        (v.tags && v.tags.some(t => t.toLowerCase().includes(q))) ||
+        (v.description && v.description.toLowerCase().includes(q))
+      );
+      return matched.length > 0 ? matched : [...BUILTIN_VIDEOS];
+    }
+
+    async function performSearch(query, saveHistory = true) {
+      const q = (query || '').trim();
+      state.currentQuery = q;
+
+      // URL直接入力が検索欄に貼られた場合はそのまま再生
+      const directId = extractVideoId(q);
+      if (directId && (q.includes('http') || q.includes('youtu'))) {
+        openPlayer({
+          id: directId,
+          title: `動画 (${directId})`,
+          channel: 'URL直接指定',
+          views: '',
+          uploaded: 'たった今',
+          duration: '',
+          description: `URLまたはID指定で再生中: ${q}`
+        });
+        return;
+      }
+
+      if (!q) {
+        showHomeView();
+        return;
+      }
+
+      if (saveHistory) {
+        addSearchHistory(q);
+      }
+
+      state.view = 'search';
+      updateNavPills('search');
+      hideLibrarySubtabs();
+      showLoadingGrid(true);
+      setApiStatus(`「${q}」を検索中...`, 'amber', false);
+
+      const heading = document.getElementById('browse-heading');
+      if (heading) {
+        heading.innerHTML = `<span>「${escapeHtml(q)}」の検索結果</span>`;
+      }
+
+      const mode = document.getElementById('api-instance-select')?.value || 'auto';
+
+      try {
+        let result = null;
+        if (mode === 'local') {
+          result = { items: searchLocalFallback(q), source: '内蔵データベース' };
+        } else if (mode === 'ytdirect') {
+          result = await searchViaYouTubeDirect(q);
+        } else if (mode === 'piped') {
+          result = await searchViaPipedAndInvidious(q);
+        } else {
+          // auto: YouTube直接とPiped/Invidiousを同時並列レース
+          result = await Promise.any([
+            searchViaYouTubeDirect(q),
+            searchViaPipedAndInvidious(q)
+          ]);
+        }
+
+        state.videos = result.items;
+        showLoadingGrid(false);
+        renderVideoGrid(state.videos);
+        setApiStatus(`取得成功: ${result.source} (${result.items.length}件)`, 'emerald', true);
+      } catch (err) {
+        // 外部APIがすべてタイムアウト・ブロックされた場合は内蔵データで検索表示
+        const fallbackItems = searchLocalFallback(q);
+        state.videos = fallbackItems;
+        showLoadingGrid(false);
+        renderVideoGrid(state.videos);
+        setApiStatus('内蔵リスト表示中（上部「URL再生」も利用可）', 'amber', true);
+      }
+    }
+
+    // =========================================================================
+    // 7. 動画プレイヤー制御（No-Cookie / Education / ダイレクトMP4 / 代替Embed）
+    // =========================================================================
+    function openPlayer(video) {
+      if (!video || !video.id) return;
+      state.currentVideo = video;
+      state.descExpanded = false;
+
+      // 視聴履歴に追加
+      state.history = [video, ...state.history.filter(v => v.id !== video.id)].slice(0, 50);
+      safeSetStorage(STORAGE_KEYS.HISTORY, state.history);
+      updateSavedBadge();
+
+      // UI情報反映
+      const watchSection = document.getElementById('watch-section');
+      if (watchSection) {
+        watchSection.classList.remove('hidden');
+        watchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      const titleEl = document.getElementById('watch-title');
+      const channelEl = document.getElementById('watch-channel');
+      const avatarEl = document.getElementById('watch-avatar');
+      const metaEl = document.getElementById('watch-meta');
+      const descEl = document.getElementById('watch-description');
+      const descToggle = document.getElementById('watch-desc-toggle');
+
+      if (titleEl) titleEl.textContent = video.title || '無題の動画';
+      if (channelEl) channelEl.textContent = video.channel || 'チャンネル';
+      if (avatarEl) avatarEl.textContent = (video.channel || 'S').charAt(0).toUpperCase();
+      if (metaEl) metaEl.textContent = [video.views, video.uploaded].filter(Boolean).join(' • ') || 'Sasa Tube プレイヤー';
+      if (descEl) {
+        descEl.textContent = video.description || `${video.channel || ''} の動画（ID: ${video.id}）`;
+        descEl.classList.add('line-clamp-2');
+      }
+      if (descToggle) descToggle.textContent = 'もっと見る';
+
+      updateWatchSaveButton();
+      updateWatchLikeButton();
+      renderRelatedVideos();
+
+      // 現在のエンジンで再生開始
+      switchPlayerEngine(state.playerEngine);
+    }
+
+    function closePlayer() {
+      const watchSection = document.getElementById('watch-section');
+      const iframeWrapper = document.getElementById('iframe-player-wrapper');
+      const videoEl = document.getElementById('direct-video-player');
+      if (videoEl) {
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.load();
+      }
+      if (iframeWrapper) iframeWrapper.innerHTML = '';
+      if (watchSection) watchSection.classList.add('hidden');
+      state.currentVideo = null;
+    }
+
+    function switchPlayerEngine(engine) {
+      state.playerEngine = engine;
+      const video = state.currentVideo;
+      if (!video) return;
+
+      // タブのアクティブ見た目更新
+      document.querySelectorAll('.engine-tab-btn').forEach(btn => {
+        const isTarget = btn.dataset.engine === engine;
+        if (isTarget) {
+          btn.className = 'engine-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-yt-red text-white transition flex items-center gap-1.5';
+        } else {
+          btn.className = 'engine-tab-btn px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-100 dark:bg-yt-darkElevated text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-yt-darkHover transition flex items-center gap-1.5';
+        }
+      });
+
+      const iframeWrapper = document.getElementById('iframe-player-wrapper');
+      const directWrapper = document.getElementById('direct-video-wrapper');
+      const videoEl = document.getElementById('direct-video-player');
+      const qualitySelect = document.getElementById('stream-quality-select');
+      const switchServerBtn = document.getElementById('switch-server-btn');
+      const statusBadge = document.getElementById('player-engine-status');
+      const noticeText = document.getElementById('player-notice-text');
+
+      // いったん既存再生を停止・クリア
+      if (videoEl) {
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+      }
+      if (iframeWrapper) iframeWrapper.innerHTML = '';
+      if (qualitySelect) qualitySelect.classList.add('hidden');
+      if (switchServerBtn) switchServerBtn.classList.add('hidden');
+
+      if (engine === 'nocookie') {
+        if (directWrapper) directWrapper.classList.add('hidden');
+        if (iframeWrapper) {
+          iframeWrapper.classList.remove('hidden');
+          const iframe = document.createElement('iframe');
+          iframe.className = 'w-full h-full border-0';
+          iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.id)}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+          iframe.title = video.title || 'Sasa Tube Player';
+          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+          iframe.allowFullscreen = true;
+          iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+          iframeWrapper.appendChild(iframe);
+        }
+        if (statusBadge) statusBadge.textContent = 'No-Cookie 再生中';
+        if (noticeText) noticeText.textContent = 'YouTube No-Cookie プレイヤーで再生中です。映らない場合は「Education再生」や「ダイレクト再生」へ切り替えられます。';
+      } else if (engine === 'edu') {
+        if (directWrapper) directWrapper.classList.add('hidden');
+        if (iframeWrapper) {
+          iframeWrapper.classList.remove('hidden');
+          const iframe = document.createElement('iframe');
+          iframe.className = 'w-full h-full border-0';
+          iframe.src = `https://www.youtubeeducation.com/embed/${encodeURIComponent(video.id)}?autoplay=1&rel=0&playsinline=1`;
+          iframe.title = video.title || 'Sasa Tube Education Player';
+          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+          iframe.allowFullscreen = true;
+          iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+          iframeWrapper.appendChild(iframe);
+        }
+        if (statusBadge) statusBadge.textContent = 'Education 再生中';
+        if (noticeText) noticeText.textContent = 'Education 埋め込みプレイヤーで再生中です。';
+      } else if (engine === 'embed') {
+        if (directWrapper) directWrapper.classList.add('hidden');
+        if (switchServerBtn) switchServerBtn.classList.remove('hidden');
+        const base = EMBED_SERVERS[state.embedServerIndex % EMBED_SERVERS.length];
+        if (iframeWrapper) {
+          iframeWrapper.classList.remove('hidden');
+          const iframe = document.createElement('iframe');
+          iframe.className = 'w-full h-full border-0';
+          iframe.src = `${base}/embed/${encodeURIComponent(video.id)}?autoplay=1`;
+          iframe.title = video.title || 'Sasa Tube Alt Embed';
+          iframe.allow = 'autoplay; fullscreen; picture-in-picture';
+          iframe.allowFullscreen = true;
+          iframeWrapper.appendChild(iframe);
+        }
+        const hostName = new URL(base).hostname;
+        if (statusBadge) statusBadge.textContent = `代替Embed (${hostName})`;
+        if (noticeText) noticeText.textContent = `代替サーバー (${hostName}) で再生中です。読み込みが遅い場合は「サーバー切替」を押してください。`;
+      } else if (engine === 'stream') {
+        if (iframeWrapper) iframeWrapper.classList.add('hidden');
+        if (directWrapper) directWrapper.classList.remove('hidden');
+        if (statusBadge) statusBadge.textContent = 'ストリーム取得中...';
+        if (noticeText) noticeText.textContent = '公開APIからMP4動画ストリームを直接取得して再生します。';
+        loadDirectVideoStream(video.id);
+      }
+    }
+
+    async function loadDirectVideoStream(videoId) {
+      const overlay = document.getElementById('stream-loading-overlay');
+      const loadingText = document.getElementById('stream-loading-text');
+      const videoEl = document.getElementById('direct-video-player');
+      const qualitySelect = document.getElementById('stream-quality-select');
+      const statusBadge = document.getElementById('player-engine-status');
+
+      if (overlay) overlay.classList.remove('hidden');
+      if (loadingText) loadingText.textContent = '動画ストリームを並列取得中...';
+
+      const tasks = [];
+
+      for (const base of PIPED_INSTANCES) {
+        tasks.push((async () => {
+          const res = await fetchWithTimeout(`${base}/streams/${encodeURIComponent(videoId)}`, 5000);
+          const data = await res.json();
+          const streams = (data.videoStreams || [])
+            .filter(s => !s.videoOnly && s.url && (s.format === 'MPEG_4' || (s.mimeType && s.mimeType.includes('mp4'))))
+            .map(s => ({ label: s.quality || '標準', url: s.url }));
+          if (data.hls) {
+            streams.unshift({ label: '自動 (HLS)', url: data.hls });
+          }
+          if (streams.length === 0) throw new Error('No combined streams');
+          return { streams, source: new URL(base).hostname };
+        })());
+      }
+
+      for (const base of INVIDIOUS_INSTANCES) {
+        tasks.push((async () => {
+          const res = await fetchWithTimeout(`${base}/api/v1/videos/${encodeURIComponent(videoId)}`, 5000);
+          const data = await res.json();
+          const streams = (data.formatStreams || [])
+            .filter(s => s.url)
+            .map(s => ({ label: s.qualityLabel || s.quality || '標準', url: s.url }));
+          if (streams.length === 0) throw new Error('No formatStreams');
+          return { streams, source: new URL(base).hostname };
+        })());
+      }
+
+      try {
+        const res = await Promise.any(tasks);
+        state.streamSources = res.streams;
+
+        if (qualitySelect) {
+          qualitySelect.innerHTML = res.streams.map((s, idx) =>
+            `<option value="${idx}">${escapeHtml(s.label)}</option>`
+          ).join('');
+          qualitySelect.classList.remove('hidden');
+        }
+
+        if (videoEl) {
+          videoEl.src = res.streams[0].url;
+          videoEl.play().catch(() => {});
+        }
+        if (overlay) overlay.classList.add('hidden');
+        if (statusBadge) statusBadge.textContent = `ダイレクト再生 (${res.source})`;
+      } catch (err) {
+        if (statusBadge) statusBadge.textContent = 'ストリーム取得不可 → No-Cookieへ切替';
+        showToast('この動画は直接ストリーム非対応のため No-Cookie プレイヤーへ切り替えます', 'info');
+        switchPlayerEngine('nocookie');
+      }
+    }
+
+    // =========================================================================
+    // 8. UI描画関数（グリッド・スケルトン・関連動画・履歴サジェスト）
+    // =========================================================================
+    function showLoadingGrid(show) {
+      const loadingGrid = document.getElementById('loading-grid');
+      const videoGrid = document.getElementById('video-grid');
+      const emptyState = document.getElementById('empty-state');
+      if (!loadingGrid || !videoGrid) return;
+
+      if (show) {
+        if (emptyState) {
+          emptyState.classList.add('hidden');
+          emptyState.classList.remove('flex');
+        }
+        videoGrid.classList.add('hidden');
+        loadingGrid.classList.remove('hidden');
+        loadingGrid.classList.add('grid');
+        loadingGrid.innerHTML = Array.from({ length: 8 }).map(() => `
+          <div class="animate-pulse flex flex-col gap-2.5">
+            <div class="w-full pt-[56.25%] bg-gray-200 dark:bg-yt-darkElevated rounded-2xl"></div>
+            <div class="flex gap-3">
+              <div class="w-9 h-9 rounded-full bg-gray-200 dark:bg-yt-darkElevated shrink-0"></div>
+              <div class="flex-1 space-y-2">
+                <div class="h-4 bg-gray-200 dark:bg-yt-darkElevated rounded w-5/6"></div>
+                <div class="h-3 bg-gray-200 dark:bg-yt-darkElevated rounded w-1/2"></div>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        loadingGrid.classList.add('hidden');
+        loadingGrid.classList.remove('grid');
+        videoGrid.classList.remove('hidden');
+      }
+    }
+
+    function renderVideoGrid(videos) {
+      const grid = document.getElementById('video-grid');
+      const countBadge = document.getElementById('browse-result-count');
+      const emptyState = document.getElementById('empty-state');
+      if (!grid) return;
+
+      if (countBadge) {
+        countBadge.textContent = `${videos.length}件`;
+      }
+
+      if (!videos || videos.length === 0) {
+        grid.innerHTML = '';
+        if (emptyState) {
+          emptyState.classList.remove('hidden');
+          emptyState.classList.add('flex');
+        }
+        return;
+      }
+
+      if (emptyState) {
+        emptyState.classList.add('hidden');
+        emptyState.classList.remove('flex');
+      }
+
+      grid.innerHTML = videos.map((v, index) => {
+        const isFav = state.favorites.some(f => f.id === v.id);
+        const initial = (v.channel || 'S').charAt(0).toUpperCase();
+        return `
+          <article class="group flex flex-col cursor-pointer rounded-2xl overflow-hidden bg-transparent transition" data-video-index="${index}">
+            <!-- サムネイル -->
+            <div class="relative w-full pt-[56.25%] bg-gray-900 rounded-2xl overflow-hidden shadow-sm">
+              <img src="${escapeHtml(getThumbUrl(v))}" alt="${escapeHtml(v.title)}" loading="lazy"
+                onerror="this.onerror=null;this.src='https://placehold.co/640x360/1a1a1a/ffffff?text=Sasa+Tube';"
+                class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              ${v.duration ? `
+                <span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md text-[11px] font-bold ${v.duration === 'LIVE' ? 'bg-yt-red text-white' : 'bg-black/80 text-white'}">
+                  ${escapeHtml(v.duration)}
+                </span>
+              ` : ''}
+              <button type="button" data-fav-id="${escapeHtml(v.id)}" title="${isFav ? 'お気に入り解除' : 'お気に入りに保存'}"
+                class="fav-card-btn absolute top-2 right-2 p-2 rounded-full bg-black/70 hover:bg-black text-white opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                <svg class="w-4 h-4 ${isFav ? 'text-yt-red fill-current' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+              </button>
+            </div>
+
+            <!-- メタ情報 -->
+            <div class="flex gap-3 pt-3 px-0.5">
+              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-white font-bold text-sm flex items-center justify-center shrink-0 mt-0.5">
+                ${escapeHtml(initial)}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-bold leading-snug line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                  ${escapeHtml(v.title)}
+                </h3>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                  ${escapeHtml(v.channel || 'チャンネル')}
+                </p>
+                <p class="text-[11px] text-gray-500 dark:text-gray-500 mt-0.5 truncate">
+                  ${escapeHtml([v.views, v.uploaded].filter(Boolean).join(' • '))}
+                </p>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      // カードクリックイベント登録
+      grid.querySelectorAll('article[data-video-index]').forEach(card => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.fav-card-btn')) return;
+          const idx = Number(card.dataset.videoIndex);
+          if (videos[idx]) {
+            openPlayer(videos[idx]);
+          }
+        });
+      });
+
+      // お気に入りボタンイベント登録
+      grid.querySelectorAll('.fav-card-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const vid = btn.dataset.favId;
+          const targetVideo = videos.find(item => item.id === vid);
+          if (targetVideo) {
+            toggleFavorite(targetVideo);
+            if (state.view === 'library' && state.libraryTab === 'favorites') {
+              renderLibraryView();
+            } else {
+              renderVideoGrid(videos);
+            }
+          }
+        });
+      });
+    }
+
+    function renderRelatedVideos() {
+      const listEl = document.getElementById('related-videos-list');
+      const countEl = document.getElementById('related-count');
+      if (!listEl) return;
+
+      const currentId = state.currentVideo?.id;
+      const pool = (state.videos && state.videos.length > 0 ? state.videos : BUILTIN_VIDEOS)
+        .filter(v => v.id !== currentId);
+
+      if (countEl) countEl.textContent = `${pool.length}件`;
+
+      listEl.innerHTML = pool.map((v, idx) => `
+        <div data-rel-index="${idx}" class="group flex gap-2.5 p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-yt-darkElevated cursor-pointer transition">
+          <div class="relative w-36 sm:w-40 pt-[22.5%] bg-black rounded-xl overflow-hidden shrink-0">
+            <img src="${escapeHtml(getThumbUrl(v))}" alt="${escapeHtml(v.title)}" loading="lazy"
+              onerror="this.onerror=null;this.src='https://placehold.co/320x180/1a1a1a/ffffff?text=Sasa+Tube';"
+              class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform">
+            ${v.duration ? `
+              <span class="absolute bottom-1 right-1 px-1 py-0.2 rounded text-[10px] font-bold bg-black/80 text-white">
+                ${escapeHtml(v.duration)}
+              </span>
+            ` : ''}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h4 class="text-xs font-bold leading-snug line-clamp-2 group-hover:text-blue-500 transition">
+              ${escapeHtml(v.title)}
+            </h4>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate">${escapeHtml(v.channel || '')}</p>
+            <p class="text-[10px] text-gray-400 dark:text-gray-500 truncate">${escapeHtml(v.views || '')}</p>
+          </div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('[data-rel-index]').forEach(el => {
+        el.addEventListener('click', () => {
+          const idx = Number(el.dataset.relIndex);
+          if (pool[idx]) openPlayer(pool[idx]);
+        });
+      });
+    }
+
+    // =========================================================================
+    // 9. ビュー切り替え（ホーム・ライブラリ）＆お気に入り操作
+    // =========================================================================
+    function updateNavPills(activeKey) {
+      document.querySelectorAll('.nav-pill').forEach(btn => {
+        const isMatch = btn.dataset.view === activeKey || btn.dataset.tag === activeKey;
+        if (isMatch) {
+          btn.className = 'nav-pill active px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap bg-gray-900 text-white dark:bg-white dark:text-gray-900 transition flex items-center gap-1';
+        } else {
+          btn.className = 'nav-pill px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-gray-100 text-gray-700 dark:bg-yt-darkElevated dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-yt-darkHover transition flex items-center gap-1';
+        }
+      });
+    }
+
+    function hideLibrarySubtabs() {
+      const subtabs = document.getElementById('library-subtabs');
+      if (subtabs) {
+        subtabs.classList.add('hidden');
+        subtabs.classList.remove('flex');
+      }
+    }
+
+    function showHomeView() {
+      state.view = 'home';
+      state.currentQuery = '';
+      const searchInput = document.getElementById('search-input');
+      const clearBtn = document.getElementById('clear-search-btn');
+      if (searchInput) searchInput.value = '';
+      if (clearBtn) clearBtn.classList.add('hidden');
+
+      updateNavPills('home');
+      hideLibrarySubtabs();
+      showLoadingGrid(false);
+
+      const heading = document.getElementById('browse-heading');
+      if (heading) {
+        heading.innerHTML = `
+          <svg class="w-5 h-5 text-yt-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          <span>おすすめ・トレンド動画</span>
+        `;
+      }
+
+      state.videos = [...BUILTIN_VIDEOS];
+      renderVideoGrid(state.videos);
+      setApiStatus('おすすめ動画を表示中（上部の検索バーで検索できます）', 'emerald', false);
+    }
+
+    function renderLibraryView() {
+      state.view = 'library';
+      updateNavPills('library');
+      showLoadingGrid(false);
+
+      const subtabs = document.getElementById('library-subtabs');
+      const favTabBtn = document.getElementById('subtab-favorites');
+      const histTabBtn = document.getElementById('subtab-history');
+      const heading = document.getElementById('browse-heading');
+
+      if (subtabs) {
+        subtabs.classList.remove('hidden');
+        subtabs.classList.add('flex');
+      }
+
+      if (state.libraryTab === 'favorites') {
+        if (favTabBtn) favTabBtn.className = 'px-3.5 py-1.5 rounded-full text-xs font-bold bg-yt-red text-white transition';
+        if (histTabBtn) histTabBtn.className = 'px-3.5 py-1.5 rounded-full text-xs font-bold bg-gray-200 dark:bg-yt-darkElevated text-gray-700 dark:text-gray-300 transition';
+        if (heading) heading.innerHTML = '<span>お気に入り保存済み動画</span>';
+        renderVideoGrid(state.favorites);
+      } else {
+        if (histTabBtn) histTabBtn.className = 'px-3.5 py-1.5 rounded-full text-xs font-bold bg-yt-red text-white transition';
+        if (favTabBtn) favTabBtn.className = 'px-3.5 py-1.5 rounded-full text-xs font-bold bg-gray-200 dark:bg-yt-darkElevated text-gray-700 dark:text-gray-300 transition';
+        if (heading) heading.innerHTML = '<span>最近視聴した動画履歴</span>';
+        renderVideoGrid(state.history);
+      }
+    }
+
+    function toggleFavorite(video) {
+      const exists = state.favorites.some(v => v.id === video.id);
+      if (exists) {
+        state.favorites = state.favorites.filter(v => v.id !== video.id);
+        showToast('お気に入りから削除しました', 'info');
+      } else {
+        state.favorites = [video, ...state.favorites];
+        showToast('お気に入りに保存しました', 'success');
+      }
+      safeSetStorage(STORAGE_KEYS.FAVORITES, state.favorites);
+      updateSavedBadge();
+      updateWatchSaveButton();
+    }
+
+    function updateWatchSaveButton() {
+      const btn = document.getElementById('watch-save-btn');
+      const text = document.getElementById('watch-save-text');
+      if (!btn || !text || !state.currentVideo) return;
+      const isFav = state.favorites.some(v => v.id === state.currentVideo.id);
+      if (isFav) {
+        text.textContent = '保存済み';
+        btn.classList.add('text-yt-red');
+      } else {
+        text.textContent = '保存';
+        btn.classList.remove('text-yt-red');
+      }
+    }
+
+    function updateWatchLikeButton() {
+      const btn = document.getElementById('watch-like-btn');
+      const text = document.getElementById('watch-like-text');
+      if (!btn || !text || !state.currentVideo) return;
+      const liked = state.likedIds.has(state.currentVideo.id);
+      if (liked) {
+        text.textContent = '高評価済み';
+        btn.classList.add('text-blue-500');
+      } else {
+        text.textContent = '高評価';
+        btn.classList.remove('text-blue-500');
+      }
+    }
+
+    // =========================================================================
+    // 10. 検索履歴サジェスト＆クイックタグ初期化
+    // =========================================================================
+    function initQuickTags() {
+      const bar = document.getElementById('quick-tags-bar');
+      if (!bar) return;
+      QUICK_TAGS.forEach(tag => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.tag = tag;
+        btn.className = 'nav-pill px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-gray-100 text-gray-700 dark:bg-yt-darkElevated dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-yt-darkHover transition';
+        btn.textContent = tag;
+        btn.addEventListener('click', () => {
+          const searchInput = document.getElementById('search-input');
+          const clearBtn = document.getElementById('clear-search-btn');
+          if (searchInput) searchInput.value = tag;
+          if (clearBtn) clearBtn.classList.remove('hidden');
+          updateNavPills(tag);
+          performSearch(tag);
+        });
+        bar.appendChild(btn);
+      });
+    }
+
+    function addSearchHistory(query) {
+      const q = query.trim();
+      if (!q) return;
+      state.searchHistory = [q, ...state.searchHistory.filter(item => item !== q)].slice(0, 12);
+      safeSetStorage(STORAGE_KEYS.SEARCH_HISTORY, state.searchHistory);
+    }
+
+    function renderSearchHistoryDropdown() {
+      const dropdown = document.getElementById('search-history-dropdown');
+      const list = document.getElementById('search-history-list');
+      if (!dropdown || !list) return;
+
+      if (state.searchHistory.length === 0) {
+        dropdown.classList.add('hidden');
+        return;
+      }
+
+      list.innerHTML = state.searchHistory.map(term => `
+        <li>
+          <button type="button" class="history-term-btn w-full px-4 py-2.5 text-left text-xs sm:text-sm hover:bg-gray-100 dark:hover:bg-yt-darkElevated flex items-center justify-between transition" data-term="${escapeHtml(term)}">
+            <span class="flex items-center gap-2 truncate">
+              <svg class="w-3.5 h-3.5 text-gray-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span class="truncate">${escapeHtml(term)}</span>
+            </span>
+            <span class="text-[11px] text-gray-400">検索</span>
+          </button>
+        </li>
+      `).join('');
+
+      list.querySelectorAll('.history-term-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const term = btn.dataset.term;
+          const searchInput = document.getElementById('search-input');
+          const clearBtn = document.getElementById('clear-search-btn');
+          if (searchInput) searchInput.value = term;
+          if (clearBtn) clearBtn.classList.remove('hidden');
+          dropdown.classList.add('hidden');
+          performSearch(term, false);
+        });
+      });
+
+      dropdown.classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // 11. イベントリスナー一括設定＆アプリ起動
+    // =========================================================================
+    function setupEvents() {
+      // ロゴクリック
+      document.getElementById('logo-btn')?.addEventListener('click', () => {
+        closePlayer();
+        showHomeView();
+      });
+
+      // ナビピル（ホーム / お気に入り）
+      document.querySelectorAll('.nav-pill[data-view]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.dataset.view === 'home') {
+            showHomeView();
+          } else if (btn.dataset.view === 'library') {
+            renderLibraryView();
+          }
+        });
+      });
+
+      document.getElementById('header-library-btn')?.addEventListener('click', () => {
+        renderLibraryView();
+      });
+
+      // ライブラリサブタブ
+      document.getElementById('subtab-favorites')?.addEventListener('click', () => {
+        state.libraryTab = 'favorites';
+        renderLibraryView();
+      });
+      document.getElementById('subtab-history')?.addEventListener('click', () => {
+        state.libraryTab = 'history';
+        renderLibraryView();
+      });
+      document.getElementById('clear-library-btn')?.addEventListener('click', () => {
+        if (state.libraryTab === 'favorites') {
+          state.favorites = [];
+          safeSetStorage(STORAGE_KEYS.FAVORITES, []);
+          showToast('お気に入りをすべて削除しました', 'info');
+        } else {
+          state.history = [];
+          safeSetStorage(STORAGE_KEYS.HISTORY, []);
+          showToast('視聴履歴をすべて削除しました', 'info');
+        }
+        updateSavedBadge();
+        renderLibraryView();
+      });
+
+      // 検索フォーム
+      const searchForm = document.getElementById('search-form');
+      const searchInput = document.getElementById('search-input');
+      const clearSearchBtn = document.getElementById('clear-search-btn');
+      const historyDropdown = document.getElementById('search-history-dropdown');
+
+      searchForm?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        historyDropdown?.classList.add('hidden');
+        performSearch(searchInput?.value || '');
+      });
+
+      searchInput?.addEventListener('input', () => {
+        if (clearSearchBtn) {
+          if (searchInput.value.trim()) {
+            clearSearchBtn.classList.remove('hidden');
+          } else {
+            clearSearchBtn.classList.add('hidden');
+          }
+        }
+      });
+
+      searchInput?.addEventListener('focus', () => {
+        renderSearchHistoryDropdown();
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#search-container')) {
+          historyDropdown?.classList.add('hidden');
+        }
+      });
+
+      clearSearchBtn?.addEventListener('click', () => {
+        if (searchInput) {
+          searchInput.value = '';
+          searchInput.focus();
+        }
+        clearSearchBtn.classList.add('hidden');
+      });
+
+      document.getElementById('clear-search-history-btn')?.addEventListener('click', () => {
+        state.searchHistory = [];
+        safeSetStorage(STORAGE_KEYS.SEARCH_HISTORY, []);
+        historyDropdown?.classList.add('hidden');
+        showToast('検索履歴を消去しました', 'info');
+      });
+
+      document.getElementById('retry-search-btn')?.addEventListener('click', () => {
+        if (state.currentQuery) {
+          performSearch(state.currentQuery, false);
+        }
+      });
+
+      // URL直接再生モーダル
+      const urlModal = document.getElementById('url-modal');
+      const urlInput = document.getElementById('youtube-url-input');
+      const titleInput = document.getElementById('youtube-title-input');
+
+      const openUrlModal = () => {
+        if (urlModal) {
+          urlModal.classList.remove('hidden');
+          urlModal.classList.add('flex');
+          setTimeout(() => urlInput?.focus(), 50);
+        }
+      };
+      const closeUrlModal = () => {
+        if (urlModal) {
+          urlModal.classList.add('hidden');
+          urlModal.classList.remove('flex');
+        }
+      };
+
+      document.getElementById('open-url-modal-btn')?.addEventListener('click', openUrlModal);
+      document.getElementById('close-url-modal')?.addEventListener('click', closeUrlModal);
+      document.getElementById('cancel-url-modal')?.addEventListener('click', closeUrlModal);
+      urlModal?.addEventListener('click', (e) => {
+        if (e.target === urlModal) closeUrlModal();
+      });
+
+      document.getElementById('url-play-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const rawUrl = urlInput?.value || '';
+        const vid = extractVideoId(rawUrl);
+        if (!vid) {
+          showToast('有効なYouTubeのURLまたは11桁の動画IDを入力してください', 'error');
+          return;
+        }
+        const customTitle = (titleInput?.value || '').trim();
+        closeUrlModal();
+        if (urlInput) urlInput.value = '';
+        if (titleInput) titleInput.value = '';
+
+        openPlayer({
+          id: vid,
+          title: customTitle || `指定動画 (${vid})`,
+          channel: 'URL直接再生',
+          views: '',
+          uploaded: 'たった今',
+          duration: '',
+          description: `URLまたは動画ID (${vid}) から直接再生中`
+        });
+      });
+
+      // プレイヤー制御イベント
+      document.getElementById('close-player-btn')?.addEventListener('click', closePlayer);
+
+      document.querySelectorAll('.engine-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchPlayerEngine(btn.dataset.engine);
+        });
+      });
+
+      document.getElementById('quick-switch-engine-btn')?.addEventListener('click', () => {
+        const order = ['nocookie', 'edu', 'stream', 'embed'];
+        const nextIdx = (order.indexOf(state.playerEngine) + 1) % order.length;
+        switchPlayerEngine(order[nextIdx]);
+      });
+
+      document.getElementById('switch-server-btn')?.addEventListener('click', () => {
+        state.embedServerIndex += 1;
+        switchPlayerEngine('embed');
+      });
+
+      document.getElementById('stream-quality-select')?.addEventListener('change', (e) => {
+        const idx = Number(e.target.value);
+        const videoEl = document.getElementById('direct-video-player');
+        if (videoEl && state.streamSources[idx]) {
+          const currentTime = videoEl.currentTime;
+          videoEl.src = state.streamSources[idx].url;
+          videoEl.currentTime = currentTime;
+          videoEl.play().catch(() => {});
+        }
+      });
+
+      // HTML保存ボタン
+      document.getElementById('download-html-btn')?.addEventListener('click', () => {
+        try {
+          const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+          const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'Sasa Tube.html';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast('Sasa Tube.html を保存しました！', 'success');
+        } catch (err) {
+          showToast('ファイルの保存に失敗しました', 'error');
+        }
+      });
+
+      // 視聴中アクション（高評価・保存・IDコピー・概要欄展開・チャンネル検索）
+      document.getElementById('watch-like-btn')?.addEventListener('click', () => {
+        if (!state.currentVideo) return;
+        const vid = state.currentVideo.id;
+        if (state.likedIds.has(vid)) {
+          state.likedIds.delete(vid);
+        } else {
+          state.likedIds.add(vid);
+          showToast('高評価しました！', 'success');
+        }
+        updateWatchLikeButton();
+      });
+
+      document.getElementById('watch-save-btn')?.addEventListener('click', () => {
+        if (!state.currentVideo) return;
+        toggleFavorite(state.currentVideo);
+      });
+
+      document.getElementById('watch-share-btn')?.addEventListener('click', () => {
+        if (!state.currentVideo) return;
+        const shareText = `https://www.youtube-nocookie.com/embed/${state.currentVideo.id}`;
+        const textarea = document.createElement('textarea');
+        textarea.value = shareText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          showToast('埋め込みURLをクリップボードにコピーしました', 'success');
+        } catch (e) {
+          showToast(`動画ID: ${state.currentVideo.id}`, 'info');
+        }
+        document.body.removeChild(textarea);
+      });
+
+      document.getElementById('watch-search-channel-btn')?.addEventListener('click', () => {
+        if (!state.currentVideo?.channel) return;
+        if (searchInput) searchInput.value = state.currentVideo.channel;
+        performSearch(state.currentVideo.channel);
+      });
+
+      document.getElementById('watch-desc-box')?.addEventListener('click', () => {
+        const descEl = document.getElementById('watch-description');
+        const toggleEl = document.getElementById('watch-desc-toggle');
+        if (!descEl || !toggleEl) return;
+        state.descExpanded = !state.descExpanded;
+        if (state.descExpanded) {
+          descEl.classList.remove('line-clamp-2');
+          toggleEl.textContent = '一部を表示';
+        } else {
+          descEl.classList.add('line-clamp-2');
+          toggleEl.textContent = 'もっと見る';
+        }
+      });
+
+      // テーマ切替
+      document.getElementById('theme-toggle-btn')?.addEventListener('click', () => {
+        const isCurrentlyDark = document.documentElement.classList.contains('dark');
+        const nextDark = !isCurrentlyDark;
+        applyTheme(nextDark);
+        safeSetStorage(STORAGE_KEYS.THEME, nextDark ? 'dark' : 'light');
+      });
+    }
+
+    // 初期化実行
+    function bootApp() {
+      try {
+        initTheme();
+        loadStorage();
+        initQuickTags();
+        setupEvents();
+        showHomeView();
+      } catch (e) {
+        console.error('Sasa Tube init error:', e);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootApp);
+    } else {
+      bootApp();
+    }
+  </script>
+</body>
+</html>
