@@ -2587,5 +2587,437 @@
   document.body.appendChild(zBtn);
 })();
 </script>
+  <!-- ===== SASA ARCADE（追加アドオン） ===== -->
+<style>
+  #sasa-arcade-trigger {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    z-index: 99990;
+    background: linear-gradient(135deg, #d8ff00 0%, #00f0ff 100%);
+    color: #090a0f;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    padding: 12px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    box-shadow: 0 8px 25px rgba(0, 240, 255, 0.45);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #sasa-arcade-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: #090a0f;
+    color: #f4f4f6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  #sasa-arcade-modal.open {
+    display: flex;
+  }
+  .sa-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #11131c;
+    border-bottom: 1px solid #232738;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .sa-logo {
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    background: linear-gradient(90deg, #d8ff00, #00f0ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sa-top-btns {
+    display: flex;
+    gap: 8px;
+  }
+  .sa-btn-sm {
+    background: #1e2230;
+    color: #fff;
+    border: 1px solid #32384e;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .sa-container {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 16px;
+    box-sizing: border-box;
+    flex: 1;
+  }
+  .sa-hero {
+    background: linear-gradient(135deg, #171b29 0%, #10131d 100%);
+    border: 1px solid #2b3147;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .sa-hero-title {
+    font-size: 15px;
+    font-weight: 900;
+    color: #d8ff00;
+    margin-bottom: 4px;
+  }
+  .sa-hero-sub {
+    font-size: 12px;
+    color: #9ca3af;
+  }
+  .sa-grid-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .sa-card {
+    background: #131622;
+    border: 1px solid #282d42;
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: transform 0.12s, border-color 0.15s;
+    touch-action: manipulation;
+  }
+  .sa-card:active {
+    transform: scale(0.97);
+    border-color: #00f0ff;
+  }
+  .sa-card-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+  .sa-card-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    width: fit-content;
+  }
+  .sa-card-name {
+    font-size: 15px;
+    font-weight: 900;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .sa-card-desc {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .sa-card-best {
+    font-size: 11px;
+    font-weight: 800;
+    color: #d8ff00;
+    border-top: 1px solid #222638;
+    padding-top: 6px;
+  }
+  .sa-stage {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+  }
+  .sa-stage.active {
+    display: flex;
+  }
+  .sa-hud {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    background: #131622;
+    border: 1px solid #282d42;
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+  }
+  .sa-canvas {
+    background: #06070a;
+    border: 2px solid #282d42;
+    border-radius: 12px;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    touch-action: none;
+  }
+  .sa-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .sa-ctrl-btn {
+    background: #1c2030;
+    color: #fff;
+    border: 1px solid #353c54;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 800;
+    min-width: 56px;
+    cursor: pointer;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  .sa-ctrl-btn:active {
+    background: #00f0ff;
+    color: #000;
+  }
+  .sa-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 8px;
+    text-align: center;
+  }
+  #sa-2048-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    background: #131622;
+    padding: 10px;
+    border-radius: 14px;
+    border: 2px solid #282d42;
+    width: 100%;
+    max-width: 330px;
+    aspect-ratio: 1 / 1;
+    touch-action: none;
+  }
+  .sa-2048-tile {
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 900;
+  }
+</style>
+
+<button id="sasa-arcade-trigger" type="button">🎮 SASA ARCADE</button>
+
+<div id="sasa-arcade-modal">
+  <div class="sa-topbar">
+    <div class="sa-logo">🎮 SASA ARCADE</div>
+    <div class="sa-top-btns">
+      <button class="sa-btn-sm" id="sa-back-lobby" style="display:none;">◀ ゲーム一覧</button>
+      <button class="sa-btn-sm" id="sa-close-arcade">✕ 閉じる</button>
+    </div>
+  </div>
+
+  <div class="sa-container">
+    <div id="sa-lobby">
+      <div class="sa-hero">
+        <div class="sa-hero-title">BGM再生しながら遊べる本格ゲームポータル</div>
+        <div class="sa-hero-sub">プレイしたいタイトルをタップしてください（ハイスコア自動保存）</div>
+      </div>
+
+      <div class="sa-grid-cards">
+        <div class="sa-card" data-launch="zzz">
+          <div>
+            <div class="sa-card-icon">⚡</div>
+            <div class="sa-card-tag" style="background:#d8ff00;color:#000;">ACTION RPG</div>
+            <div class="sa-card-name">ホロウ探索 ＆ 極限パリィ</div>
+            <div class="sa-card-desc">TVアレイを探索し、敵の攻撃に黄金の枠でパリィを決めろ！</div>
+          </div>
+          <div class="sa-card-best" id="best-label-zzz">H.D.D. 起動</div>
+        </div>
+
+        <div class="sa-card" data-launch="stg">
+          <div>
+            <div class="sa-card-icon">🚀</div>
+            <div class="sa-card-tag" style="background:#00f0ff;color:#000;">SHOOTING</div>
+            <div class="sa-card-name">ギャラクシー・ストライカー</div>
+            <div class="sa-card-desc">パワーアップアイテムを拾って弾幕強化＆巨大ボスを撃破！</div>
+          </div>
+          <div class="sa-card-best" id="best-label-stg">BEST: 0</div>
+        </div>
+
+        <div class="sa-card" data-launch="blocks">
+          <div>
+            <div class="sa-card-icon">🧱</div>
+            <div class="sa-card-tag" style="background:#ff0055;color:#fff;">PUZZLE</div>
+            <div class="sa-card-name">ネオン・落ちものパズル</div>
+            <div class="sa-card-desc">回転・高速落下でラインを揃えて消す定番本格パズル。</div>
+          </div>
+          <div class="sa-card-best" id="best-label-blocks">BEST: 0</div>
+        </div>
+
+        <div class="sa-card" data-launch="g2048">
+          <div>
+            <div class="sa-card-icon">🔢</div>
+            <div class="sa-card-tag" style="background:#a855f7;color:#fff;">BRAIN</div>
+            <div class="sa-card-name">2048 ネオン</div>
+            <div class="sa-card-desc">スワイプで同じ数字を合体させて2048を目指す思考パズル。</div>
+          </div>
+          <div class="sa-card-best" id="best-label-g2048">BEST: 0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="stage-stg" class="sa-stage">
+      <div class="sa-hud">
+        <span id="stg-hud-score" style="color:#00f0ff;">SCORE: 0</span>
+        <span id="stg-hud-lv">WEAPON Lv.1</span>
+        <span id="stg-hud-hp">❤️❤️❤️</span>
+      </div>
+      <canvas id="stg-canvas" class="sa-canvas" width="340" height="440"></canvas>
+      <div class="sa-hint">指でドラッグして移動（オート連射）</div>
+      <button class="sa-ctrl-btn" id="stg-restart" style="margin-top:8px;">↻ リスタート</button>
+    </div>
+
+    <div id="stage-blocks" class="sa-stage">
+      <div class="sa-hud">
+        <span id="blk-hud-score" style="color:#ff0055;">SCORE: 0</span>
+        <span id="blk-hud-lines">LINES: 0</span>
+        <span id="blk-hud-lv">LV.1</span>
+      </div>
+      <canvas id="blk-canvas" class="sa-canvas" width="240" height="420"></canvas>
+      <div class="sa-controls">
+        <button class="sa-ctrl-btn" id="blk-left">◀</button>
+        <button class="sa-ctrl-btn" id="blk-rot">↻ 回転</button>
+        <button class="sa-ctrl-btn" id="blk-right">▶</button>
+        <button class="sa-ctrl-btn" id="blk-down">▼ 落下</button>
+        <button class="sa-ctrl-btn" id="blk-restart">リセット</button>
+      </div>
+    </div>
+
+    <div id="stage-g2048" class="sa-stage">
+      <div class="sa-hud">
+        <span id="g20-hud-score" style="color:#d8ff00;">SCORE: 0</span>
+        <span id="g20-hud-best">BEST: 0</span>
+      </div>
+      <div id="sa-2048-grid"></div>
+      <div class="sa-controls">
+        <button class="sa-ctrl-btn" data-m20="up">▲</button>
+        <button class="sa-ctrl-btn" data-m20="left">◀</button>
+        <button class="sa-ctrl-btn" data-m20="down">▼</button>
+        <button class="sa-ctrl-btn" data-m20="right">▶</button>
+        <button class="sa-ctrl-btn" id="g20-restart">リセット</button>
+      </div>
+      <div class="sa-hint">パネルを上下左右にスワイプして合体！</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const modal = document.getElementById('sasa-arcade-modal');
+  const lobby = document.getElementById('sa-lobby');
+  const backBtn = document.getElementById('sa-back-lobby');
+  let currentGame = null;
+  let rafId = null;
+  let timerId = null;
+
+  const bests = {
+    stg: Number(localStorage.getItem('sa_best_stg') || 0),
+    blocks: Number(localStorage.getItem('sa_best_blocks') || 0),
+    g2048: Number(localStorage.getItem('sa_best_g2048') || 0)
+  };
+
+  function saveBest(key, val) {
+    if (val > bests[key]) {
+      bests[key] = val;
+      localStorage.setItem('sa_best_' + key, val);
+    }
+    const el = document.getElementById('best-label-' + key);
+    if (el) el.textContent = 'BEST: ' + bests[key];
+  }
+  Object.keys(bests).forEach(k => saveBest(k, 0));
+
+  function stopLoops() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (timerId) { clearInterval(timerId); timerId = null; }
+  }
+
+  function showLobby() {
+    stopLoops();
+    currentGame = null;
+    lobby.style.display = 'block';
+    backBtn.style.display = 'none';
+    document.querySelectorAll('.sa-stage').forEach(s => s.classList.remove('active'));
+  }
+
+  document.getElementById('sasa-arcade-trigger').addEventListener('click', () => {
+    modal.classList.add('open');
+    showLobby();
+  });
+  document.getElementById('sa-close-arcade').addEventListener('click', () => {
+    stopLoops();
+    modal.classList.remove('open');
+  });
+  backBtn.addEventListener('click', showLobby);
+
+  document.querySelectorAll('[data-launch]').forEach(card => {
+    card.addEventListener('click', () => {
+      const g = card.dataset.launch;
+      if (g === 'zzz') {
+        stopLoops();
+        modal.classList.remove('open');
+        const zModal = document.getElementById('zzz-game-modal');
+        if (zModal) zModal.classList.add('open');
+        return;
+      }
+      stopLoops();
+      currentGame = g;
+      lobby.style.display = 'none';
+      backBtn.style.display = 'inline-block';
+      document.querySelectorAll('.sa-stage').forEach(s => s.classList.remove('active'));
+      document.getElementById('stage-' + g).classList.add('active');
+      if (g === 'stg') startStg();
+      if (g === 'blocks') startBlocks();
+      if (g === 'g2048') start2048();
+    });
+  });
+
+  // ギャラクシー・ストライカー
+  const stgCanvas = document.getElementById('stg-canvas');
+  const stgCtx = stgCanvas.getContext('2d');
+  let ship, bullets, enemies, items, stgScore, stgHp, stgLv, stgOver, stgTick;
+  function startStg() {
+    ship = {x: 170, y: 385}; bullets = []; enemies = []; items = [];
+    stgScore = 0; stgHp = 3; stgLv = 1; stgOver = false; stgTick = 0;
+    function loop() {
+      stgCtx.fillStyle = '#06070a'; stgCtx.fillRect(0,0,340,440);
+      stgCtx.fillStyle = '#283048';
+      for (let i=0;i<24;i++) stgCtx.fillRect((i*53)%340, (i*97 + stgTick*2)%440, 2, 2);
+
+      if (!stgOver) {
+        stgTick++;
+        if (stgTick % 10 === 0) {
+          bullets.push({x: ship.x, y: ship.y - 14});
+          if (stgLv >= 2) { bullets.push({x: ship.x - 12, y: ship.y - 8}); bullets.push({x: ship.x + 12, y: ship.y - 8}); }
+          if (stgLv >= 3) { bullets.push({x: ship.x - 22, y: ship.y}); bullets.push({x: ship.x + 22, y: ship.y}); }
+        }
+        const spawnRate = Math.max(18, 42 - Math.floor(stgScore / 400));
+        if (stgTick % spawnRate === 0) {
+          const isBoss = stgTick % (spawnRate * 10) === 0;
+          enemies.push({
+            x: 25 + Math.random() * 290, y: -20,
+            hp: isBoss ? 12 + stgLv * 4 : 1 + Math.floor(stgScore / 1500),
+            r: isBoss ?
 </body>
 </html>
